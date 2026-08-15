@@ -1,0 +1,165 @@
+% =====================================================================
+%  Chapter: Derivative-Constrained Deep Smoothing
+% =====================================================================
+\chapter{Derivative-Constrained Deep Smoothing}
+\label{ch:deepsmoother}
+
+The parametric benchmark of \cref{ch:parametric} quantified a trade-off:
+per-slice SVI fits well but leaks static arbitrage; SSVI is arbitrage-free by
+construction but three times less accurate. This chapter implements a neural
+smoother designed to occupy the space between, combining the
+\emph{architecture} of \cite{ackerer2020deep} with the \emph{training
+mechanics} of \cite{hoshisashi2024noarbitrage}.
+
+\section{Method}
+\label{sec:dsmethod}
+
+\subsection{Architecture: an SSVI prior times a neural corrector}
+Following \cite{ackerer2020deep}, the total-variance surface is modelled
+multiplicatively,
+\begin{equation}
+  w_\theta(k,\tau) \;=\; w_{\mathrm{SSVI}}(k,\tau)\,\times\,
+  \mathcal C_\theta(k,\tau),
+  \qquad
+  \mathcal C_\theta = \exp\!\big(\mathrm{MLP}_\theta(k,\tau)\big) > 0,
+  \label{eq:priorcorrector}
+\end{equation}
+where the prior is an SSVI surface with a smooth power-law term structure
+$\theta(\tau)=\alpha\tau^{\beta}$ fitted to the day's quotes, and the
+corrector is a small multilayer perceptron ($2\times64$ hidden units,
+$\tanh$ activations) whose inputs $(k,\tau)$ are rescaled to $[-1,1]^2$.
+With standard small-weight initialization $\mathcal C_\theta\approx1$, so
+training \emph{starts at the prior} and departs from it only where the data
+demand. The choice of $\tanh$ is not cosmetic: the loss below involves
+$\partial^2_k w_\theta$, and piecewise-linear activations such as ReLU have
+vanishing second derivatives almost everywhere, which would silence the
+butterfly penalty \cite{hoshisashi2024noarbitrage}.
+
+\subsection{Loss: soft no-arbitrage penalties on a collocation grid}
+Training minimizes
+\begin{equation}
+  \mathcal L(\theta)
+  = \underbrace{\frac1N\sum_{i=1}^{N}\big(w_\theta(k_i,\tau_i)-w_i\big)^2}_{\text{fit on sparse quotes}}
+  + \lambda_{\mathrm{bfly}}\,\overline{\relu\!\big(-g_\theta\big)^2}\Big|_{\hat X}
+  + \lambda_{\mathrm{cal}}\,\overline{\relu\!\big(-\partial_\tau w_\theta\big)^2}\Big|_{\hat X},
+  \label{eq:dsloss}
+\end{equation}
+where $g_\theta$ is the Durrleman function of \cref{eq:durrleman} evaluated
+on the model surface, and --- the decisive detail imported from
+\cite{hoshisashi2024noarbitrage} --- the penalties are averaged over a
+\emph{dense collocation grid} $\hat X$ ($24\times10$ points spanning the
+day's quoted rectangle) that is disjoint from the quotes. No-arbitrage is
+thus enforced everywhere, including regions with no data, which is what makes
+extrapolation safe. The derivatives $w_k,w_{kk},w_\tau$ entering
+\cref{eq:dsloss} are computed by \emph{exact} automatic differentiation of
+the network (nested \texttt{elementwise\_grad}); before any training we
+verified the machinery against the closed-form SVI derivatives of
+\cref{ch:foundations}, with agreement at the $10^{-16}$ level. Soft
+penalties, rather than hard architectural constraints, follow the evidence of
+\cite{chataigner2020deep} that hard constraints sacrifice too much
+representational power; we set $\lambda_{\mathrm{bfly}}=\lambda_{\mathrm{cal}}=10$.
+
+\section{Controlled experiments on synthetic surfaces}
+\label{sec:dsablation}
+
+The method is first validated where ground truth is known: a target SSVI
+surface sampled on sparse irregular grids ($6$--$14$ quotes per slice, $1.5\%$
+noise), with a deliberately misspecified prior fitted from the same sparse
+quotes. Three ablations isolate the two design choices.
+
+\begin{table}[t]
+  \centering
+  \caption[Deep smoother ablations]{Ablation study on a synthetic surface
+  (IV RMSE against the dense ground truth, in vol points; $\min g$ and
+  violation share on the collocation grid).}
+  \label{tab:ablation}
+  \begin{tabular}{lS[table-format=1.3]S[table-format=+1.3]S[table-format=2.1]}
+    \toprule
+    Variant & {RMSE (vol pts)} & {$\min g$} & {Violations (\%)} \\
+    \midrule
+    Full model (prior + constraints) & 0.187 & +0.33 & 0.0 \\
+    No constraints ($\lambda=0$)     & 0.247 & {---} & {---} \\
+    No prior (flat BS prior)         & 1.418 & {---} & {---} \\
+    \bottomrule
+  \end{tabular}
+  \\[2pt]\footnotesize \TODO{fill the $\min g$/violation columns of the
+  ablated variants from the notebook run.}
+\end{table}
+
+Two lessons emerge from \cref{tab:ablation}. First, the \emph{prior is the
+dominant ingredient} in the sparse-data regime: without it the corrector must
+invent the entire surface shape and the error grows sevenfold. Second, the
+constraints act as a \emph{regularizer} as well as a safety device --- the
+fully constrained model fits \emph{better} than the unconstrained one, in
+line with the observations of \cite{hoshisashi2024noarbitrage}, while
+guaranteeing a clean $g$ on the collocation grid
+(\cref{fig:gheatmap}).
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=\textwidth]{figures/nb03_gheatmap.png}
+  \caption[Arbitrage heat-map of the deep smoother]{Durrleman $g(k,\tau)$
+  heat-map. Left: the constrained model is non-negative everywhere. Right:
+  removing the penalties lets butterfly arbitrage (red) leak into regions
+  unsupported by data.}
+  \label{fig:gheatmap}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=0.8\textwidth]{figures/nb03_tradeoff.png}
+  \caption[Training dynamics: fit vs penalty]{Training dynamics of the fit
+  term and butterfly penalty (log scale), in the style of Fig.~7 of
+  \cite{hoshisashi2024noarbitrage}.}
+  \label{fig:tradeoff}
+\end{figure}
+
+\paragraph{Robustness to sparsity.} Subsampling the synthetic quotes exposes
+the structural advantage of a \emph{surface-level} smoother over per-slice
+calibration: at $25\%$ of the quotes, no slice retains the six points needed
+to calibrate a five-parameter SVI --- per-slice calibration simply ceases to
+exist --- while the deep smoother, which pools information across maturities,
+still reconstructs the surface at $0.315$ vol points
+(\cref{fig:sparsity}).
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=0.7\textwidth]{figures/nb03_sparsity.png}
+  \caption[Robustness to quote sparsity]{Reconstruction error as quotes are
+  subsampled. Per-slice SVI loses calibrable slices and eventually cannot be
+  evaluated; the surface-level smoother degrades gracefully.}
+  \label{fig:sparsity}
+\end{figure}
+
+\section{Real-data protocol and preliminary results}
+\label{sec:dsreal}
+
+On real SPX days the protocol mirrors the benchmark exactly: OTM quotes
+grouped by expiration, an SSVI prior fitted per day, $20\%$ of quotes
+withheld, penalties on the day's collocation grid, and the same
+arbitrage audit. On the preliminary sample the smoother attains a hold-out
+error of $0.158$ vol points against $0.153$ in-sample --- hold-out
+$\approx$ in-sample, as for the parametric fits, with $\min g>0$ on the
+audit grid. \TODO{replace with full-sample per-day results joined against
+\texttt{benchmark\_svi\_slices\_\{full,paper\}.parquet}, and add the
+comparison figure deep-vs-SVI-vs-SSVI per day.}
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=\textwidth]{figures/nb03_smiles.png}
+  \caption[Deep smoother on real SPX quotes]{The deep smoother on a real
+  trading day: quotes (dots) and fitted smiles per maturity.}
+  \label{fig:dssmiles}
+\end{figure}
+
+\section{Discussion}
+The prior-times-corrector design earns both of its components: the prior
+carries the sparse-data regime, the derivative penalties buy near-exact
+no-arbitrage at zero cost in accuracy --- on synthetic data they even improve
+it. The remaining honest caveat, inherited from the soft-constraint
+paradigm and documented by \cite{chataigner2020deep}, is that penalties
+\emph{reduce} violations without \emph{abolishing} them on unseen regions;
+we therefore always report the residual violation rate alongside the error.
+The chapter's limitation is economic rather than statistical: one network
+must be trained \emph{per day}. Removing that cost is the subject of
+\cref{ch:operator}.

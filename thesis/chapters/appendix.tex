@@ -1,0 +1,54 @@
+% =====================================================================
+%  Appendix
+% =====================================================================
+\chapter{Technical Appendix}
+\label{app:technical}
+
+\section{The corrected inverse of Lemma 3.2}
+\label{app:lemma32}
+Given JW parameters $(v_t,\psi_t,p_t,c_t,\tilde v_t)$ at maturity $t$, set
+$w_t=v_tt$, $b=\tfrac{\sqrt{w_t}}{2}(c_t+p_t)$ and
+$\rho=(c_t-p_t)/(c_t+p_t)$. Define
+$\beta=\rho-2\psi_t\sqrt{w_t}/b\in(-1,1)$ and
+$\alpha=\operatorname{sign}(\beta)\sqrt{1/\beta^2-1}$, so that
+$\sigma=\alpha m$ and $\sqrt{m^2+\sigma^2}=m/\beta$ for either sign of $m$.
+Substituting into the raw-SVI expressions for $v_t$ and $\tilde v_t$ yields
+\begin{equation}
+  (v_t-\tilde v_t)\,t
+  \;=\; b\,m\left(\frac{1}{\beta}-\rho-\alpha\sqrt{1-\rho^2}\right),
+  \label{eq:lemma32}
+\end{equation}
+which is solved for $m$ (the printed statement omits the
+$-\alpha\sqrt{1-\rho^2}$ term inside the bracket); finally
+$a=\tilde v_t t-b\sigma\sqrt{1-\rho^2}$. The correction was validated by
+round-trips over $2{,}000$ random draws (maximum error $2.7\times10^{-10}$)
+and by exact recovery of the raw Vogt parameters from their JW image.
+
+\section{Quasi-explicit calibration: inner problem constraints}
+\label{app:zeliade}
+With $y=(k-m)/\sigma$ and $(a,d,c)=(a,\rho b\sigma,b\sigma)$ the inner
+problem is
+$\min_{(a,d,c)}\sum_i \omega_i\,\big(a+d\,y_i+c\sqrt{y_i^2+1}-w_i\big)^2$
+subject to $0\le c\le4\sigma$, $|d|\le c$, $|d|\le4\sigma-c$ and
+$0\le a\le\max_i w_i$ --- a convex quadratic program solved by SLSQP with
+analytic gradient; the outer $(m,\log\sigma)$ search uses Nelder--Mead with
+three restarts.
+
+\section{Isotonic repair of the ATM term structure}
+\label{app:pava}
+Raw ATM total variances $\hat\theta_i$ estimated from quotes occasionally
+violate monotonicity in maturity (12\% of sample days). Before the SSVI fit
+they are projected onto the monotone cone by pool-adjacent-violators:
+repeatedly merge adjacent blocks whose means are decreasing, replacing them
+by their weighted mean, until the sequence is non-decreasing. The raw
+inversion counts are reported as a diagnostic in \cref{tab:bench}.
+
+\section{Reproducibility}
+\label{app:repro}
+The pipeline is a sequence of five notebooks --- NB01 data cleaning
+(Polars, lazy streaming), NB02 parametric benchmark, NB03 deep smoother,
+NB04 neural operator, NB05 unified evaluation --- exchanging Parquet files
+with fixed schemas. All stochastic steps are seeded; hold-out splits are
+derived from per-date seeds; chronological splits are used for all
+learning-based methods. \TODO{add repository URL / archive reference and
+package versions.}

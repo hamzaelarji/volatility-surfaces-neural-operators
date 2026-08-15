@@ -1,0 +1,21 @@
+\chapter{Related Work}\label{ch:literature}
+
+\section{Parametric surfaces: SVI and SSVI}
+The Stochastic Volatility Inspired (SVI) parameterisation \cite{gatheral2004parsimonious} models a total-variance slice with five parameters,
+\begin{equation}\label{eq:sviraw}
+  w(k) \;=\; a + b\left(\rho\,(k-m) + \sqrt{(k-m)^2+\sigma^2}\right),
+\end{equation}
+and owes its longevity to closed-form derivatives, trader-interpretable reparameterisations, and its exact large-maturity consistency with the Heston smile. Gatheral and Jacquier \cite{gatheral2014arbitrage} supply the modern no-arbitrage theory: explicit butterfly conditions via the Durrleman function, three equivalent parameterisations (raw, natural, Jump--Wings) with exact conversions, an algorithm that \emph{eliminates} butterfly arbitrage by adjusting the Jump--Wings call slope and minimum variance, and the surface-level SSVI family
+\begin{equation}\label{eq:ssvi}
+  w(k,\theta_\tau) \;=\; \frac{\theta_\tau}{2}\Big(1+\rho\varphi(\theta_\tau)k+\sqrt{(\varphi(\theta_\tau)k+\rho)^2+1-\rho^2}\Big),
+\end{equation}
+where $\theta_\tau$ is the at-the-money total variance and $\varphi$ a decreasing function, with sharp theorems characterising when \cref{eq:ssvi} is entirely free of static arbitrage. Calibration is delicate---the SVI objective has spurious local minima---and the quasi-explicit reformulation of \cite{zeliade2009quasi} restores convexity of the inner subproblem. Chapter~\ref{ch:parametric} replicates this toolkit in full.
+
+\section{Per-surface neural smoothers}
+Ackerer, Tagasovska and Vatter \cite{ackerer2020deep} introduced the architecture adopted in Chapter~\ref{ch:deepsmoother}: the implied-volatility (or total-variance) surface is modelled as the \emph{product of a prior and a neural corrector}, and the no-arbitrage conditions are imposed as \emph{soft constraints}---penalties on the network's derivatives evaluated on a grid wider than the quotes. Chataigner, Cr\'epey and Dixon \cite{chataigner2020deep} work in price space, penalising the Dupire-relevant derivatives $(\partial^2_{KK}P\ge0$, $\partial_T P\ge0)$ and extracting local volatility by automatic differentiation; importantly they document that \emph{hard}-constrained architectures (e.g.\ splines of non-negative weights) lose too much expressiveness, motivating the soft-constraint consensus. Hoshisashi, Phelan and Barucca \cite{hoshisashi2024noarbitrage} systematise the approach (DCNN): exact first- and second-order derivatives via automatic differentiation, hinge penalties for each no-arbitrage inequality evaluated on a collocation set distinct from the data, and twice-differentiable activations---ReLU being excluded since its second derivative vanishes almost everywhere.
+
+\section{Neural operators}
+Neural operators \cite{kovachki2023neural} learn maps between function spaces with the defining property of \emph{discretisation invariance}: the same trained model accepts inputs sampled on arbitrary grids. Operator deep smoothing \cite{gonon2024operator} applies a graph neural operator (GNO) to implied-volatility smoothing: each day's quotes are treated as a pointwise discretisation of a latent surface, and a single $\sim$100k-parameter model, trained on roughly a decade of 20-minute CBOE S\&P~500 snapshots ($\sim$60 million quotes), smooths any quote set in one forward pass. The architecture modifies the standard GNO by making the first layer purely non-local, which allows the hidden state to be \emph{created} at arbitrary output locations (interpolation); training uses a vega-weighted relative fitting loss and finite-difference no-arbitrage penalties. Chapter~\ref{ch:operator} adapts this approach to the daily-data regime available to academic research.
+
+\section{Positioning}
+The three families have never been compared on equal terms: \cite{gatheral2014arbitrage} predates the neural literature, \cite{ackerer2020deep} and \cite{hoshisashi2024noarbitrage} benchmark against their own SVI implementations on different datasets, and \cite{gonon2024operator} compares to Ackerer's \emph{reported} numbers rather than a shared sample. This thesis contributes the missing controlled comparison, together with an arbitrage audit of uniform stringency and the low-data transfer study of Chapter~\ref{ch:operator}.

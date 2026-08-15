@@ -1,0 +1,26 @@
+\chapter{Data}\label{ch:data}
+
+\section{Sources}
+All market data are from OptionMetrics IvyDB US, accessed through WRDS. Four tables are used: daily option quotes on the S\&P~500 index (SPX), forward prices, the zero-coupon yield curve, and---as an industry reference only---OptionMetrics' own smoothed volatility surface. The sample covers 2018--2022: a calm regime (2019), the COVID-19 crash (March 2020), the recovery, and the 2022 sell-off, enabling the per-regime analysis of Chapter~\ref{ch:evaluation}.
+
+\section{Cleaning pipeline}\label{sec:pipeline}
+The raw exports are processed with a lazy, streaming Polars pipeline (Notebook~01) whose main steps are:
+\begin{enumerate}
+  \item \textbf{Typing and units.} OptionMetrics stores strikes in thousandths (a displayed strike of $4500$ is stored as $4500000$); dates are parsed defensively; quotes with $\mathrm{bid}\le 0$, $\mathrm{ask}<\mathrm{bid}$, or maturities outside $[7, 730]$ days are discarded.
+  \item \textbf{Missing implied volatilities.} The fields \texttt{impl\_volatility}, \texttt{delta} and \texttt{vega} are missing on exactly the same rows ($\sim$5.7\%); $99.98\%$ of these are deep in-the-money options for which OptionMetrics does not attempt the inversion (the time value is buried in the spread). Since the surface is built from out-of-the-money quotes, these rows are dropped; the 118 OTM exceptions (out of 8.5 million rows) are immaterial.
+  \item \textbf{Contract types.} Standard SPX (third-Friday, AM-settled) and SPXW weeklys (PM-settled) may share an expiration date with slightly different prices. The \texttt{root} field being unpopulated in the export, contracts are labelled by the settlement flag, and third-Friday collisions are resolved by preferring the standard contract; weeklys are retained on all other expirations, densifying the short end. One expiration therefore maps to exactly one contract.
+  \item \textbf{Coordinates and discounting.} Forwards are taken from the quote file and completed by a join with the forward table; $k=\log(K/F)$; $\tau$ in ACT/365; the discount factor $D=e^{-r\tau}$ uses the zero curve at the nearest tenor.
+  \item \textbf{Validation.} Implied volatilities are recomputed independently by a vectorised Black-inversion for every retained quote and compared to OptionMetrics' values: the median absolute gap is below $10^{-3}$ in volatility, validating forwards, discounting and coordinates simultaneously.
+\end{enumerate}
+The output is a typed Parquet dataset (one row per quote: date, expiry, $\tau$, $k$, bid/ask/mid, spread, volume, open interest, implied volatility, discount) on which all subsequent chapters operate; slices are always formed by exact expiration date, never by rounded maturity.
+
+% FIGURE (export from NB01): quote density over time
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=0.8\textwidth]{figures/nb01_quote_density.png}
+  \caption[OTM quote density]{Number of out-of-the-money SPX quotes per trading day after cleaning. The weekly sawtooth reflects expiration cycles.}
+  \label{fig:density}
+\end{figure}
+
+\section{Evaluation domains}\label{sec:domains}
+Two evaluation domains are carried through the thesis. The \emph{full} domain retains every cleaned quote and is honest about real difficulty; the \emph{paper} domain restricts to $k\in[-0.6,0.4]$ and $\mathrm{DTE}\ge 10$, matching the effective domains of the reference papers and enabling literature-comparable numbers. Results are reported on both.

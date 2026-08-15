@@ -1,0 +1,247 @@
+% =====================================================================
+%  Chapter: The Parametric Benchmark — SVI and SSVI
+% =====================================================================
+\chapter{The Parametric Benchmark: SVI and SSVI}
+\label{ch:parametric}
+
+Before any neural method can claim an improvement, the parametric state of the
+art must be implemented \emph{properly} and audited \emph{honestly}. This
+chapter replicates the complete toolkit of \cite{gatheral2014arbitrage} and
+turns it into a quantified benchmark on the real SPX dataset of
+\cref{ch:data}. Every replicated component is validated against the numbers
+printed in the original paper.
+
+\section{Replication of Gatheral--Jacquier (2014)}
+\label{sec:replication}
+
+\subsection{Parameterizations and exact conversions}
+We implement the three equivalent SVI parameterizations: \emph{raw}
+(\cref{eq:sviraw}), \emph{natural}, and \emph{jump-wings} (JW), together with
+the closed-form conversions of Lemmas~3.1--3.2 of the paper. The JW
+parameters $(v_t,\psi_t,p_t,c_t,\tilde v_t)$ --- ATM variance, ATM skew, wing
+slopes and minimum variance --- are the trader-facing coordinates and the
+vehicle of the butterfly-elimination algorithm below.
+
+\begin{remark}[A correction to the printed Lemma 3.2]
+\label{rem:lemma32}
+When inverting the JW map back to raw parameters we found that the printed
+formula omits one term; using it verbatim fails to recover the raw parameters
+of the paper's own example. \Cref{app:lemma32} derives the corrected inverse,
+which handles the case $m<0$ through the identity
+$\sqrt{m^2+\sigma^2}=m/\beta$. All conversions were validated by round-trips
+over $2{,}000$ random parameter draws, with maximum error
+$2.7\times10^{-10}$, and the JW values of the paper's Vogt example
+$(0.01742625,\,-0.1752111,\,0.6997381,\,1.316798,\,0.0116249)$ are reproduced
+to the printed digit.
+\end{remark}
+
+\subsection{Static-arbitrage diagnostics and the Vogt smile}
+The butterfly criterion is the Durrleman condition $g(k)\ge0$ of
+\cref{eq:durrleman} together with the wing condition $b(1+|\rho|)<2$
+(Lee's moment bound \cite{lee2004moment}); calendar arbitrage between two
+slices is measured by their \emph{crossedness}. Applied to the Vogt smile
+(Example~3.1 of the paper), the diagnostics reproduce the textbook pathology:
+a perfectly innocent-looking total-variance slice whose $g$ dips to
+$\min_k g=-0.0329$, i.e.\ a locally \emph{negative} implied density
+(\cref{fig:vogt}, already shown in \cref{ch:foundations}).
+
+\subsection{Quasi-explicit calibration}
+Our production calibrator follows the quasi-explicit method of
+\cite{zeliade2009quasi}: freezing $(m,\sigma)$ and substituting
+$y=(k-m)/\sigma$ makes raw SVI \emph{linear} in $(a,d,c)=(a,\rho b\sigma,
+b\sigma)$, so the inner problem is a convex least squares under linear
+no-arbitrage constraints (solved by SLSQP with an analytic gradient), and only
+$(m,\sigma)$ are searched by Nelder--Mead with restarts. On a synthetic SSVI
+slice observed with $1\%$ multiplicative noise the calibrator recovers the
+slice with $\mathrm{RMSE}(w)=2.8\times10^{-4}$ and $\min_k g=0.44>0$.
+
+\subsection{The paper's recipe, butterfly elimination, SSVI variants,
+interpolation}
+Four further components complete the replication.
+\emph{(i)} The \S5.2 calibration recipe --- square-root-SVI initialization
+followed by slice-by-slice refinement under a heavy crossedness penalty ---
+removes an artificially injected calendar crossing (total crossedness
+$0.113\to0.000$; \cref{fig:recipe}).
+\emph{(ii)} The \S5.1 butterfly-elimination algorithm in JW coordinates,
+$c_t'=p_t+2\psi_t$ and $\tilde v_t'=v_t\,4p_tc_t'/(p_t+c_t')^2$, reproduces
+Example~5.1 exactly: $(c_t',\tilde v_t')=(0.3493158,\,0.0154818)$, taking the
+Vogt smile from $\min g=-0.033$ to $+0.270$ (\cref{fig:elimination}).
+\emph{(iii)} The three SSVI variants --- power-law, Heston-like, and the
+modified power-law of Eq.~(4.5), fully arbitrage-free whenever
+$\eta(1+|\rho|)\le2$ --- are verified against Theorems~4.1--4.2.
+\emph{(iv)} The arbitrage-free interpolation of Lemma~5.1 (price-space
+interpolation with $\sqrt\theta$ weights) and the extrapolation of
+Theorem~4.3 are implemented and audited ($\min g = 0.52$ on the interpolated
+slice).
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=\textwidth]{figures/nb02_butterfly_elimination.png}
+  \caption[Butterfly elimination via jump-wings (Example 5.1)]{Butterfly
+  elimination in JW coordinates, reproducing Example~5.1 of
+  \cite{gatheral2014arbitrage}. Left: the original (red) and repaired (green)
+  smiles are nearly indistinguishable; middle: $g(k)$ is lifted above zero;
+  right: the implied density becomes non-negative.}
+  \label{fig:elimination}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=\textwidth]{figures/nb02_recipe_crossedness.png}
+  \caption[The \S5.2 recipe: crossedness penalty]{The paper's calibration
+  recipe. Without the penalty (left) an inflated short slice crosses its
+  neighbours (calendar arbitrage); the crossedness penalty (right) removes
+  the crossing at negligible fit cost.}
+  \label{fig:recipe}
+\end{figure}
+
+\section{Benchmark methodology on real data}
+\label{sec:benchmethod}
+
+The benchmark driver applies the replicated machinery to
+\texttt{option\_prices\_clean.parquet}, one calibration problem per trading
+day, under the following protocol. Slices are formed by \emph{exact
+expiration date} (\texttt{exdate}), never by rounded maturity --- the SPX/SPXW
+resolution of \cref{ch:data} guarantees one contract family per slice.
+Quotes are weighted by inverse bid--ask spread, the liquidity weighting used
+throughout the reference papers. Within each slice $20\%$ of quotes are
+withheld as a \emph{hold-out} set, so that the parametric benchmark is scored
+on the same generalization footing as the learning-based methods of
+\cref{ch:deepsmoother,ch:operator}.
+
+For the surface-level SSVI fit, the ATM total variance $\theta_i$ of each
+slice is estimated \emph{from the quotes} (interpolation at $k=0$), not from
+the fitted SVI's extrapolation, which proved erratic for long maturities with
+few near-the-money quotes. Monotonicity of the term structure
+$\theta(\tau)$ is diagnosed \emph{in maturity order} --- an earlier version of
+the pipeline sorted the $\theta$'s before testing monotonicity, silently
+masking genuine inversions --- raw inversions are counted and reported, and
+repaired by isotonic regression (pool-adjacent-violators) before the global
+$(\rho,\eta,\gamma)$ fit under the Theorem~4.2 butterfly constraints.
+Finally, the audit covers both arbitrage directions: the Durrleman $g$
+within each slice, and the crossedness between adjacent fitted slices.
+
+All results are reported on two evaluation domains: the \textbf{full} quoted
+domain, and the \textbf{paper} domain $k\in[-0.6,0.4]$, $\mathrm{DTE}\ge10$
+used by the reference literature. The former is honest about the real
+difficulty of the data; the latter makes our numbers directly comparable to
+published work.
+
+\section{Results}
+\label{sec:benchresults}
+
+\TODO{The numbers below are from the preliminary 8-day January-2018 sample
+(LIMIT\_DATES=8); replace with the full 2018--2022 run before submission.}
+
+\begin{table}[t]
+  \centering
+  \caption[Parametric benchmark: fit and arbitrage audit]{Parametric
+  benchmark on SPX (median IV RMSE in volatility points; preliminary 8-day
+  sample, 258 slices). Hold-out $\approx$ in-sample confirms the parametric
+  fits do not overfit.}
+  \label{tab:bench}
+  \begin{tabular}{lS[table-format=1.3]S[table-format=1.3]S[table-format=1.3]S[table-format=1.3]}
+    \toprule
+    & \multicolumn{2}{c}{Full domain} & \multicolumn{2}{c}{Paper domain} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    Method & {In-sample} & {Hold-out} & {In-sample} & {Hold-out} \\
+    \midrule
+    SVI (per slice)   & 0.949 & 0.968 & 0.806 & 0.806 \\
+    SSVI (per day)    & 2.789 & 2.790 & 2.551 & 2.670 \\
+    \midrule
+    Butterfly-violating slices (\%) & \multicolumn{2}{c}{6.20} & \multicolumn{2}{c}{2.44} \\
+    Days with raw-$\theta$ inversions (\%) & \multicolumn{2}{c}{12} & \multicolumn{2}{c}{12} \\
+    Median cross-slice crossedness & \multicolumn{2}{c}{$3.3\times10^{-2}$} & \multicolumn{2}{c}{$1.1\times10^{-2}$} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\Cref{tab:bench} summarizes the benchmark. Three findings deserve emphasis.
+
+\paragraph{The fit--arbitrage trade-off is now a number.} Per-slice SVI
+achieves a median hold-out error of $0.97$ vol points on the full domain but
+violates the butterfly condition on $6.2\%$ of slices and exhibits non-zero
+crossedness between adjacent slices --- per-slice calibration produces
+\emph{no} surface-level coherence. SSVI, arbitrage-free across maturities by
+construction, pays for its guarantee with an error almost three times larger.
+The window between these two numbers ($\approx0.97$ vs $\approx2.8$ vol
+points) is exactly the target the learning-based methods must enter.
+
+\paragraph{Difficulty is localized --- and not where expected.}
+\Cref{tab:buckets} breaks the full-domain results by maturity bucket. Slices
+beyond 180 days are essentially solved ($0.13$ vol pts, no violations); the
+butterfly violations concentrate massively in the ultra-short bucket
+(7--14 days, $55\%$ of slices). Strikingly, localizing the minimizer of $g$
+shows that \emph{all} violations sit in the core moneyness region
+$k\in[-0.6,0.4]$, not in the wings: at these maturities the SPX smile has a
+pronounced kink at the money, total variance is small, and the $1/w$ term in
+\cref{eq:durrleman} amplifies any excess convexity of the fit. Restricting
+the moneyness domain therefore does \emph{not} remove the problem; the
+$\mathrm{DTE}\ge10$ filter of the paper domain does most of the cleaning.
+
+\begin{table}[t]
+  \centering
+  \caption[Benchmark by maturity bucket]{Full-domain results by maturity
+  bucket. Violations concentrate in ultra-short maturities and, at those
+  maturities, in the \emph{core} moneyness region (16 of 16 located at
+  $k\in[-0.6,0.4]$), pointing to a structural limitation of the SVI
+  parametric form at the short end rather than a calibration failure.}
+  \label{tab:buckets}
+  \begin{tabular}{lS[table-format=1.3]S[table-format=2.1]S[table-format=3.0]}
+    \toprule
+    Maturity bucket & {Median RMSE (vol pts)} & {Violations (\%)} & {Slices} \\
+    \midrule
+    7--14 d   & 0.995 & 55.2 & 29 \\
+    15--60 d  & 1.003 & 0.0  & 109 \\
+    61--180 d & 0.881 & 0.0  & 56 \\
+    $>$180 d  & 0.135 & 0.0  & 64 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=\textwidth]{figures/nb02_buckets.png}
+  \caption[Difficulty by maturity bucket]{Fit error (left) and
+  butterfly-violation rate (right) by maturity bucket on the full domain.
+  The arbitrage risk of the parametric benchmark is an ultra-short-maturity
+  phenomenon.}
+  \label{fig:buckets}
+\end{figure}
+
+\paragraph{The benchmark matches the industrial reference.} Evaluating our
+per-day SVI fits at the grid points of the proprietary OptionMetrics
+volatility surface (forwards interpolated from the zero-curve and forward
+tables of \cref{ch:data}) yields a median absolute gap of $0.93$ vol points
+over $2{,}958$ grid points ($90$th percentile $3.13$). A fully transparent,
+replicable pipeline thus reproduces the commercial smoother to within one
+volatility point at the median.
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=0.85\textwidth]{figures/nb02_domains.png}
+  \caption[Benchmark under both evaluation domains]{Median IV RMSE under the
+  full and paper evaluation domains, in-sample and hold-out. The thesis
+  reports both throughout.}
+  \label{fig:domains}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=\textwidth]{figures/nb02_day_smiles.png}
+  \caption[A full trading day under the parametric benchmark]{One trading day:
+  market quotes (dots), per-slice SVI (solid) and surface SSVI (dashed), with
+  the day's ATM total-variance term structure. The raw $\theta(\tau)$
+  estimates exhibit the inversions quantified in \cref{tab:bench}.}
+  \label{fig:daysmiles}
+\end{figure}
+
+\section{Known limitation and outlook}
+The SSVI objective is currently fitted by unweighted least squares while the
+SVI slices use inverse-spread weights; this asymmetry slightly disadvantages
+SSVI in \cref{tab:bench} and will be removed for the final full-sample run.
+More fundamentally, the chapter's conclusion stands regardless: a single
+$(\rho,\eta,\gamma)$ triple across $\sim$30 expirations is structurally too
+rigid for SPX, while per-slice SVI buys accuracy at the price of measurable
+static arbitrage. \Cref{ch:deepsmoother} asks whether a neural smoother can
+occupy the space between.

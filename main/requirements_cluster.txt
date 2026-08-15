@@ -1,0 +1,27 @@
+# Python environment for the Telecom cluster runs.
+# Install with:  pip install -r requirements_cluster.txt
+#
+# NOTE ON KALEIDO: version 0.2.1 is pinned ON PURPOSE. Kaleido >= 1.0 requires a
+# separate Google Chrome installation, which you cannot install without root on
+# a shared cluster node. 0.2.1 ships a self-contained binary and exports PDF/PNG
+# with no external dependency. Do not "upgrade" it.
+kaleido==0.2.1
+
+# core stack
+numpy
+scipy
+polars
+pyarrow
+plotly
+autograd
+
+# notebook execution (headless)
+nbformat
+nbconvert
+ipykernel
+jupyter-client
+
+# NB04 only (GPU node). Install torch SEPARATELY with the CUDA build that matches
+# the driver reported by nvidia-smi, e.g.:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+# Leaving it unpinned here would pull a CPU-only or mismatched wheel.

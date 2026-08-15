@@ -1,0 +1,168 @@
+% =====================================================================
+%  Chapter: Operator Deep Smoothing
+% =====================================================================
+\chapter{Operator Deep Smoothing: One Model for Every Surface}
+\label{ch:operator}
+
+Every method so far --- SVI, SSVI, and the deep smoother of
+\cref{ch:deepsmoother} --- learns \emph{one surface at a time}: a new day
+requires a new calibration or a new training run. Following the operator
+deep smoothing approach of \cite{gonon2024operator}, this chapter learns the
+\emph{smoothing map itself},
+\begin{equation}
+  F_\theta:\ \{(k_i,\tau_i,\sigma_i)\}_{i=1}^{p}\ \longmapsto\
+  \hat v(\cdot,\cdot),
+  \label{eq:operator}
+\end{equation}
+trained once across many days and applied to unseen days \emph{without
+retraining}. The enabling property is \emph{discretization invariance}: the
+operator accepts inputs of arbitrary size $p$ and arbitrary spatial layout
+--- exactly the nature of daily option quotes.
+
+\section{Two architectures}
+\label{sec:oparch}
+
+\subsection{An executable DeepONet-class operator}
+Our in-notebook operator is of the DeepONet/DeepSets family
+\cite{lu2021deeponet}: a permutation-invariant set encoder embeds each quote
+$(k_i,\tau_i,\sigma_i)$ and \emph{mean-pools} the embeddings --- the same
+averaging philosophy that underlies the Nystr\"om kernel sums of
+\cite{gonon2024operator}, and the mechanism that renders the representation
+invariant to input size and ordering --- while a trunk network embeds the
+query coordinate $(k,\tau)$, so the surface can be evaluated anywhere. A
+Softplus output enforces positivity. This model is deliberately lighter than
+the graph operator below: it isolates the \emph{operator questions}
+(no retraining, subsampling robustness, transfer) from the
+\emph{architecture question} (graph kernels).
+
+\subsection{The modified graph neural operator of the paper}
+We additionally provide a faithful PyTorch implementation of the modified
+GNO of \cite{gonon2024operator}: a purely \emph{non-local first layer}
+(dropping the pointwise linear map, so hidden state can be \emph{created} at
+arbitrary output locations --- the interpolation property), in-neighborhoods
+drawn from input locations with truncation along the maturity axis and a
+low-discrepancy subsampling cap of $K=50$ nodes, per-layer lifting and
+projection networks, kernel networks with input skip connections, GELU
+activations and Softplus output; at $J=4$ layers and $16$ channels the model
+has $\approx10^5$ parameters, the paper's configuration. Training this
+architecture at scale requires GPU time and is left for the final
+full-sample experiments. \TODO{if GPU runs are completed before submission,
+report GNO results alongside the DeepONet results below.}
+
+\section{The paper's loss, resolved by finite differences}
+Training minimizes the five-term loss of \cite{gonon2024operator}: a
+\emph{vega-weighted relative} fitting term (deep-OTM quotes with negligible
+vega must not dominate), the butterfly hinge
+$\overline{(g-\varepsilon)^-}$ at $\varepsilon=10^{-3}$ with $g$ resolved by
+central finite differences on a rectilinear grid, a calendar penalty
+(monotone total variance across maturities --- the scale-free ratio form of
+the paper is its equivalent in transformed coordinates), and two curvature
+regularizers $\|\partial^2_\tau\hat v\|_2,\|\partial^2_k\hat v\|_2$, with the
+paper's weights $(1,10,10,0.01,0.01)$. The finite-difference Durrleman
+machinery is validated against the closed forms of \cref{ch:foundations}
+before use. During training every surface is randomly subsampled to
+$60$--$100\%$ of its quotes --- the augmentation that forges robustness to
+sparse inputs.
+
+\section{The low-data transfer experiment}
+\label{sec:transfer}
+
+\cite{gonon2024operator} train on roughly $6\times10^{7}$ intraday CBOE
+points spanning a decade. Academic access (OptionMetrics) is \emph{daily}:
+about $1{,}250$ surfaces for 2018--2022 --- two orders of magnitude less.
+This gap is the research question of the chapter:
+
+\begin{quote}\itshape
+Does operator deep smoothing work in the low-data daily regime, and does
+pre-training on synthetic arbitrage-free surfaces close the gap?
+\end{quote}
+
+The experiment crosses three data regimes under identical architecture,
+loss and budget (\cref{tab:regimes}), with a \emph{strict chronological
+split} --- training on the earliest dates, testing on the latest --- so that
+the test period contains a genuine volatility-regime shift, as it does in
+reality.
+
+\begin{table}[t]
+  \centering
+  \caption[Transfer-experiment regimes]{The three training regimes of the
+  transfer experiment. The synthetic bank consists of SSVI surfaces with
+  parameters drawn from realistic ranges, sampled on sparse irregular grids
+  with multiplicative noise --- arbitrage-free teachers in unlimited supply.}
+  \label{tab:regimes}
+  \begin{tabular}{llll}
+    \toprule
+    Regime & Pre-training & Fine-tuning & Question \\
+    \midrule
+    R1 & --- & real train days & operator at academic data scale \\
+    R2 & synthetic bank & --- & zero-shot synthetic$\to$real transfer \\
+    R3 & synthetic bank & real train days & does pre-training close the gap? \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[t]
+  \centering
+  \caption[Transfer-experiment results]{Transfer results on unseen
+  chronological test days (IV RMSE in vol points; arbitrage audit on the
+  dense grid). \TODO{fill from the full-sample notebook run.}}
+  \label{tab:transfer}
+  \begin{tabular}{lS[table-format=1.3]S[table-format=+1.3]S[table-format=2.1]}
+    \toprule
+    Regime & {IV RMSE} & {$\min g$} & {Violations (\%)} \\
+    \midrule
+    R1 real-only            & {\TODO{}} & {\TODO{}} & {\TODO{}} \\
+    R2 synth-only (0-shot)  & {\TODO{}} & {\TODO{}} & {\TODO{}} \\
+    R3 pretrain + finetune  & {\TODO{}} & {\TODO{}} & {\TODO{}} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=0.75\textwidth]{figures/nb04_transfer.png}
+  \caption[Transfer experiment R1/R2/R3]{IV RMSE on unseen test days under
+  the three training regimes. Whatever the ordering, the result answers a
+  question the original paper does not address; the expected pattern under a
+  regime shift is $\mathrm{R3}\le\mathrm{R1}<\mathrm{R2}$.}
+  \label{fig:transfer}
+\end{figure}
+
+\section{Discretization invariance}
+\label{sec:invariance}
+
+The operator's signature property is tested directly: one unseen test day is
+fed $100\%$, $50\%$ and $25\%$ of its quotes, and the movement of the
+\emph{predicted dense surface} is measured. A per-day method cannot even
+enter this comparison --- each subsample would require a fresh training run.
+\Cref{fig:invariance} reports the mean surface shift; the operator's output
+remains stable as the input thins, the empirical counterpart of the
+discretization-invariance property of \cite{kovachki2023neural}.
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=\textwidth]{figures/nb04_invariance.png}
+  \caption[Discretization invariance]{Left: mean shift of the predicted
+  surface as the input is subsampled. Right: a smoothed slice with full
+  versus quarter input.}
+  \label{fig:invariance}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \maybegraphics[width=0.8\textwidth]{figures/nb04_surface.png}
+  \caption[Operator-smoothed surface on an unseen day]{Operator-smoothed
+  implied-volatility surface on an unseen test day --- produced by a single
+  forward pass, with no day-specific training.}
+  \label{fig:opsurface}
+\end{figure}
+
+\section{Discussion}
+The operator changes the economics of smoothing: the cost of a new surface
+drops from a calibration (\cref{ch:parametric}) or a training run
+(\cref{ch:deepsmoother}) to a single forward pass, and the same weights serve
+every day. The price is a heavier training pipeline, the loss of per-day
+interpretability, and --- in the academic data regime --- the exposure to
+overfitting that the transfer experiment is designed to measure. The
+unified comparison of all methods, including the proprietary OptionMetrics
+surface, is the subject of \cref{ch:evaluation}.

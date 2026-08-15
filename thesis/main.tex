@@ -1,0 +1,121 @@
+% =====================================================================
+%  MSc Thesis — Imperial College London, Mathematics and Finance
+%  Arbitrage-Free Implied Volatility Surface Construction:
+%  From Parametric Models to Neural Operators
+%  Structure follows MSc_thesis_Template_2026 (title page, declaration,
+%  acknowledgements, abstract, ToC, unnumbered introduction, chapters,
+%  appendix, bibliography).
+% =====================================================================
+\documentclass[11pt,a4paper,twoside]{report}
+
+% ---------- packages ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}          % professional tables
+\usepackage{siunitx}           % aligned numeric columns
+\usepackage{xcolor}
+\usepackage[colorlinks=true, linkcolor=blue!60!black,
+            citecolor=blue!60!black, urlcolor=blue!60!black]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+\usepackage{listings}
+\usepackage[expansion=false]{microtype}
+\usepackage{emptypage}
+
+% ---------- theorem environments (template style) ----------
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% ---------- notation macros ----------
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\iv}{\sigma_{\mathrm{IV}}}
+\newcommand{\dd}{\mathrm{d}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\newcommand{\relu}{\mathrm{ReLU}}
+
+% ---------- code listings ----------
+\lstset{basicstyle=\ttfamily\small, breaklines=true, frame=single,
+        language=Python, showstringspaces=false,
+        keywordstyle=\color{blue!70!black}, commentstyle=\color{green!50!black}}
+
+% ---------- metadata: EDIT THESE ----------
+\newcommand{\thesisauthor}{Hamza \textsc{LASTNAME}}   % <-- EDIT
+\newcommand{\thesiscid}{01234567}                      % <-- EDIT
+\newcommand{\thesistitle}{Arbitrage-Free Implied Volatility Surface Construction:\\ From Parametric Models to Neural Operators}
+\newcommand{\thesisyear}{2025--2026}
+
+
+% ---------- compile-safe figures & todo notes ----------
+\newcommand{\TODO}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\maybegraphics}[2][]{\IfFileExists{#2}{\includegraphics[#1]{#2}}{\fbox{\parbox[c][5cm][c]{0.85\linewidth}{\centering \texttt{\detokenize{#2}}\\[4pt] \small (export this figure from the notebook and place it here)}}}}
+
+\begin{document}
+
+% =====================  TITLE PAGE  =====================
+\begin{titlepage}
+\begin{center}
+  {\Large Imperial College London}\\[2pt]
+  {\large Department of Mathematics}\\[3.2cm]
+  {\LARGE\bfseries \thesistitle}\\[2.6cm]
+  {\large Author: \thesisauthor{} (CID: \thesiscid)}\\[3.2cm]
+  {\large A thesis submitted for the degree of}\\[6pt]
+  {\large\itshape MSc in Mathematics and Finance, \thesisyear}
+\end{center}
+\end{titlepage}
+
+% =====================  DECLARATION  =====================
+\chapter*{Declaration}
+The work contained in this thesis is my own work unless otherwise stated.
+\cleardoublepage
+
+% =====================  ACKNOWLEDGEMENTS  =====================
+\chapter*{Acknowledgements}
+% EDIT: thank supervisor, family, etc.
+I would like to thank my supervisor for their guidance throughout this project.
+\cleardoublepage
+
+% =====================  ABSTRACT  =====================
+\chapter*{Abstract}
+The implied volatility surface is the central object of equity derivatives markets, yet it is only ever observed as a sparse, noisy and irregular cloud of option quotes. Reconstructing a complete, smooth and arbitrage-free surface from these observations is an ill-posed inverse problem, and the quality of the reconstruction directly affects pricing, hedging and risk management. This thesis studies the problem across the full methodological spectrum, on a single unified S\&P~500 dataset built from OptionMetrics. We first replicate the parametric benchmark of Gatheral and Jacquier---the SVI and SSVI families, their no-arbitrage theory and calibration recipes---validating every component against the original paper. We then implement a derivative-constrained deep smoother in the spirit of Ackerer et al.\ and Hoshisashi et al., in which a neural corrector multiplies an SSVI prior and no-arbitrage conditions are enforced through automatic differentiation, and finally a neural operator following the operator deep smoothing approach, which learns the smoothing map itself and applies to unseen days without retraining. All methods are evaluated under a common protocol: hold-out reconstruction error, a systematic static-arbitrage audit based on the Durrleman condition, robustness to quote sparsity, and behaviour across market regimes including the COVID-19 crash. As a contribution, we quantify the low-data regime of operator smoothing available to academic research and measure whether pre-training on synthetic SSVI surfaces closes the gap to the data-rich industrial setting.
+\cleardoublepage
+
+% =====================  FRONT MATTER  =====================
+\tableofcontents
+\listoffigures
+\listoftables
+\cleardoublepage
+
+% =====================  CHAPTERS  =====================
+\input{chapters/introduction}
+\input{chapters/foundations}
+\input{chapters/literature}
+\input{chapters/data}
+\input{chapters/parametric}
+\input{chapters/deepsmoother}
+\input{chapters/operator}
+\input{chapters/evaluation}
+\input{chapters/conclusion}
+
+% =====================  APPENDIX  =====================
+\appendix
+\input{chapters/appendix}
+
+% =====================  BIBLIOGRAPHY  =====================
+\bibliographystyle{abbrv}
+\bibliography{bibliography}
+
+\end{document}
