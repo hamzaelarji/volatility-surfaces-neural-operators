@@ -7,7 +7,13 @@
 *.pt
 *.pth
 
-main/data/
+data/
+logs/
+
+# patched copies of NB03-05 for the cluster — regenerate with
+# `python cluster/patch_notebooks.py build`
+build/
+*_executed.ipynb
 
 # ============================================================
 # PRIVATE / REFERENCE MATERIAL
