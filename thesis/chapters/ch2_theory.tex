@@ -1,0 +1,629 @@
+% ============================================================================
+\chapter{Static Arbitrage and Parametric Surfaces}\label{ch:theory}
+% ============================================================================
+
+A smoother is judged on two things it cannot optimise simultaneously: how closely it follows the
+quotes, and whether the prices it manufactures between them are coherent. This chapter builds
+the second half of that sentence. It answers three questions in order, and each answer is used
+somewhere later in the thesis.
+
+\emph{What exactly must a surface avoid?} Section~\ref{sec:setting} defines static arbitrage,
+shows why the abstract definition reduces to two concrete conditions, one in the strike
+direction and one in the maturity direction, and explains why those two exhaust the problem
+rather than merely being convenient. \emph{How do we test for it?}
+Sections~\ref{sec:blacksec} to~\ref{sec:calendarsec} translate both conditions into the
+total-variance coordinates $(k,w)$, where the butterfly condition collapses to the sign of a
+single scalar function $g$ and the calendar condition to the sign of a single derivative
+$\partial_\tau w$. These are the two numbers audited on every surface in this thesis.
+\emph{Why should anyone care?} Section~\ref{sec:dupiresec} derives Dupire's identity
+$\sigma^2_{\mathrm{loc}}=\partial_\tau w/g$, which turns out to say that the two audited
+quantities are the numerator and the denominator of the object desks actually price with. That
+identity is what allows Chapter~\ref{ch:downstream} to convert a violation rate into an economic
+cost, and it is the reason the audit is worth performing at all.
+
+Sections~\ref{sec:svisec} and~\ref{sec:ssvisec} then introduce the parametric families, SVI and
+SSVI, for which the conditions of this chapter are not merely testable but \emph{provable}. They
+serve three roles later: as the benchmark every learned model must beat, as the certified prior
+inside the deep smoother, and as the source of the closed forms against which our automatic
+differentiation is validated. Chapter~\ref{ch:learning} then turns to model classes for which no
+such proof exists.
+
+\paragraph{Attribution.} Because this chapter mixes established theory with results developed
+for this thesis, the division is stated once here rather than left implicit. The
+static-arbitrage framework, the Black partials, the Breeden--Litzenberger identity, Dupire's
+equation, the SVI parameterisations and the Gatheral--Jacquier certificates are due to the cited
+authors, and every statement carries its source; our contribution to these sections is
+verification rather than derivation, since each result is re-derived independently and checked
+numerically against the values published by its authors. Two results are exceptions and are
+flagged in place: the correction to the published inverse of the natural-parameter map
+(Remark~\ref{rem:gjtypo}), and the endpoint-certification result (Theorem~\ref{lem:range}),
+which reduces the Gatheral--Jacquier conditions on a compact working range to two endpoint
+checks and is what allows a per-day prior to be \emph{certified} rather than merely audited.
+Section~\ref{sec:softtheory} of the next chapter is original throughout. Proofs of published
+results are reproduced when they are short and used later, and cited when they are long; every
+compression is signalled explicitly.
+
+To make the division visible rather than merely stated, the thesis adopts a naming convention
+throughout: results established by other authors are labelled \emph{Propositions} or
+\emph{Lemmas} and carry an explicit citation in their statement, whereas \emph{Theorems} are
+reserved for results proved here. There are exactly two of the latter,
+Theorem~\ref{lem:range} in this chapter and Theorem~\ref{prop:nodegap} in
+Chapter~\ref{ch:learning}.
+
+% ============================================================================
+\section{Market setting and static arbitrage}\label{sec:setting}
+% ============================================================================
+
+Fix a trading date $t$ and let $S=(S_u)_{u\ge t}$ denote the underlying index. For a maturity
+$T>t$ write $\tau=T-t$, let $F=F(t,T)$ be the forward price for delivery at $T$ and
+$D=D(t,T)$ the discount factor. European calls and puts of strike $K$ and maturity $T$ trade at
+prices $C(K,T)$ and $P(K,T)$.
+
+We work throughout under the standard \emph{static} and model-free framework: no dynamic model is
+assumed. The only structure imposed on the quoted (or fitted) price surface is the absence of
+\emph{static arbitrage}, i.e.\ the impossibility of forming at time $t$, a buy-and-hold
+portfolio of finitely many calls, puts, forwards and cash whose cost is negative while its
+payoff at the relevant maturities is almost surely nonnegative.
+
+\begin{definition}[Static arbitrage]\label{def:staticarb}
+A call price surface $(K,T)\mapsto C(K,T)$ admits \emph{static arbitrage} if there exist
+$n\in\mathbb N$, strikes $K_1,\dots,K_n$, maturities $T_1,\dots,T_n$, positions
+$\alpha_1,\dots,\alpha_n\in\R$ in the corresponding calls, positions in forwards and cash, such
+that the portfolio's initial cost is strictly negative while its terminal payoff is nonnegative
+in every state. The surface is \emph{free of static arbitrage} if no such portfolio exists.
+\end{definition}
+
+Definition~\ref{def:staticarb} is a statement about \emph{portfolios}, whereas everything this
+thesis fits and audits is a \emph{surface}. The bridge between the two deserves to be made
+explicit at the outset, because it is what turns an abstract condition into something a smoother
+can actually violate. A fitted surface is not a drawing. Through the Black formula it defines a
+complete system of option prices,
+\[
+w(k,\tau)\;\longrightarrow\;\sigma_{\mathrm{IV}}(k,\tau)\;\longrightarrow\;C(K,T),
+\]
+including at strikes and maturities where nothing was ever quoted. Those manufactured prices
+must satisfy the same inequalities as the quoted ones, and an interpolation that honours every
+observation point by point can still generate a system that does not.
+
+Two failures are possible, and they correspond to the two directions of the surface. In the
+\emph{strike} direction, fix a maturity and take three strikes $K_1<K_2<K_3$ with
+$K_2=\lambda K_1+(1-\lambda)K_3$. Convexity of the call price in $K$ requires
+\[
+C(K_2)\;\le\;\lambda\,C(K_1)+(1-\lambda)\,C(K_3),
+\]
+and if the fitted surface breaks this inequality then the butterfly portfolio that is long the
+wings and short the body has a nonnegative payoff and a negative cost: free money. In the
+\emph{maturity} direction, a longer-dated option must be worth at least as much as a
+shorter-dated one at the same moneyness, which in total-variance coordinates will read
+$\partial_\tau w\ge0$; otherwise the calendar spread that is long the far leg and short the near
+leg has the same defect. The audit performed throughout this thesis is nothing more than
+checking these two families of inequalities on the surfaces our models produce, and the whole of
+Chapter~\ref{ch:downstream} is the question of what it costs when they fail.
+
+It is natural to ask why these two directions and not some longer list. The answer, and it is
+what makes a two-constraint audit exhaustive rather than merely convenient, is that under the
+standard positivity, regularity and boundary conditions, which are largely structural (total
+variance positive, correct behaviour as $\tau\downarrow0$, the price bounds of
+Proposition~\ref{prop:shape}, and the wing behaviour of Remark~\ref{rem:lee}), the two
+\emph{nontrivial} directions of static arbitrage are exactly these:
+\[
+\text{no static arbitrage}
+\iff
+\begin{cases}
+\text{no butterfly arbitrage on every maturity slice,}\\[2pt]
+\text{no calendar-spread arbitrage across maturities.}
+\end{cases}
+\]
+This decomposition is Lemma~2.1 of \cite{gatheraljacquier2014}, resting on
+\cite{coxhobson2005,kellerer1972}. Its sufficiency has a probabilistic reading worth stating
+once, because it explains why the two conditions are the right ones rather than two conditions
+among many. A butterfly-free slice is precisely a slice whose implied density is a genuine
+probability distribution, so each maturity contributes an admissible marginal law. The calendar
+condition is precisely the statement that these marginals are correctly ordered, in convex
+order. And a family of marginals increasing in convex order is, by Kellerer's theorem
+\cite{kellerer1972}, the marginal system of some martingale, which is in turn the absence of
+static arbitrage. Butterfly therefore governs coherence \emph{within} a maturity, calendar
+governs coherence \emph{across} maturities, and together they close the problem.
+
+\newpage
+
+The classical characterisation, which we take as the organising principle of the thesis, is that
+freedom from static arbitrage is equivalent to the existence of a nonnegative
+\emph{martingale measure} consistent with all quotes: there is a filtered probability space
+carrying a nonnegative martingale $(M_u)$ with $M_t=1$ such that
+\begin{equation}\label{eq:pricingrule}
+C(K,T)=D(t,T)\,F(t,T)\;\E\Bigl[\bigl(M_T-\tfrac{K}{F(t,T)}\bigr)^+\Bigr],
+\end{equation}
+i.e.\ $M_T=S_T/F(t,T)$ is the maturity-$T$ forward-normalised underlying. Sufficiency of
+\eqref{eq:pricingrule} is immediate (linearity and positivity of expectations); necessity is the
+content of Kellerer's theorem \cite{kellerer1972} and its refinements for call surfaces
+\cite{coxhobson2005,roper2010}: a system of call prices that is (per maturity) decreasing and
+convex in $K$ with the correct bounds, and (across maturities) increasing in the sense of
+Section~\ref{sec:calendarsec}, is the marginal-expectation system of some martingale. We use
+this equivalence freely and now record the elementary per-maturity properties.
+
+\begin{proposition}[Shape of an arbitrage-free call slice]\label{prop:shape}
+Fix $T$ and suppose $C(\cdot,T)$ is free of static arbitrage. Write $c(K)=C(K,T)/D(t,T)$ for
+the \emph{undiscounted} call, which strips out the interest-rate factor and equals the pure
+expected payoff. Then:
+\begin{enumerate}[label=(\alph*)]
+\item $K\mapsto c(K)$ is nonincreasing and convex;
+\item $(F-K)^+\le c(K)\le F$ for all $K\ge0$;
+\item if $c$ is twice differentiable, $\partial_{KK}c(K)\ge0$, and $\partial_{KK}c(K)$ is the
+(undiscounted) risk-neutral density of $S_T$ at $K$ (Breeden--Litzenberger \cite{breeden1978}).
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+\begin{enumerate}[label=\textup{(\alph*)}, leftmargin=*]
+
+\item \textbf{Monotonicity.}
+For $K_1<K_2$, the call spread consisting of a long call at $K_1$ and a short call at $K_2$
+has payoff $(S_T-K_1)^+-(S_T-K_2)^+\ge 0.$
+Therefore, its cost must be nonnegative: $c(K_1)-c(K_2)\ge 0.$
+
+\medskip
+
+\textbf{Convexity.} Let $K_1<K_2<K_3$, with $K_2=\lambda K_1+(1-\lambda)K_3.$
+The \emph{butterfly} portfolio consisting of a position $+\lambda$ at $K_1$, a position $-1$
+at $K_2$, and a position $+(1-\lambda)$ at $K_3$ has payoff
+$\lambda(S_T-K_1)^+-(S_T-K_2)^+ +(1-\lambda)(S_T-K_3)^+\ge 0,$
+by convexity of the map $K\mapsto (S_T-K)^+$. Hence, its cost satisfies
+$\lambda c(K_1)-c(K_2)+(1-\lambda)c(K_3)\ge 0.$ \medskip
+
+\item The upper bound follows from the dominating payoff $S_T$, whose cost is $F$ and which
+can be replicated using a forward position together with cash. The lower bound follows from
+the dominated payoff $S_T-K$, which can be replicated using a forward position minus cash.
+\medskip
+\item Under \eqref{eq:pricingrule}, the undiscounted call is $c(K)=\E\bigl[(S_T-K)^+\bigr].$ Differentiating twice under the expectation gives $\partial_{KK}c(K)=E\bigl[\delta_K(S_T)\bigr],$ which is the density of $S_T$ evaluated at $K$. The positivity of this density is the
+infinitesimal counterpart of the convexity established in part~(a). Indeed, the butterfly
+portfolio with strikes $K-\varepsilon$, $K$, and $K+\varepsilon$ has cost
+$\varepsilon^2\partial_{KK}c(K)+o(\varepsilon^2).$
+\end{enumerate}
+\end{proof}
+
+\newpage
+
+% ============================================================================
+\section{The Black model, implied volatility, and the $(k,w)$ coordinates}\label{sec:blacksec}
+% ============================================================================
+
+\subsection{The Black formula}
+
+Under the Black (forward) model, $M_T=S_T/F$ is lognormal: $M_T=\exp(\sqrt{v}\,Z-v/2)$ with
+$Z\sim\mathcal N(0,1)$ and total variance $v=\sigma^2\tau$. The call price is
+\begin{equation}\label{eq:black}
+C(K,\tau;\sigma)=D\,\bigl[F\,N(d_+)-K\,N(d_-)\bigr],\qquad
+d_\pm=\frac{\log(F/K)}{\sigma\sqrt{\tau}}\pm\frac{\sigma\sqrt{\tau}}{2},
+\end{equation}
+with $N$ the standard normal cdf.
+
+% \begin{proof}[Derivation of \eqref{eq:black}]
+% $C/D=F\,\E[(M_T-e^{k})^+]$ with $k=\log(K/F)$. On the event
+% $\{M_T>e^k\}=\{Z>(k+v/2)/\sqrt v\}=\{Z>-d_-\}$ (with $v=\sigma^2\tau$),
+% \[
+% \E[M_T\mathbf 1_{\{Z>-d_-\}}]
+% =\int_{-d_-}^{\infty} e^{\sqrt v z-v/2}\varphi(z)\dd z
+% =\int_{-d_-}^{\infty}\varphi(z-\sqrt v)\dd z
+% =N(d_-+\sqrt v)=N(d_+),
+% \]
+% by completing the square, while $\E[e^k\mathbf 1_{\{Z>-d_-\}}]=e^kN(d_-)$. Multiplying by $F$
+% and noting $Fe^k=K$ gives \eqref{eq:black}.
+% \end{proof}
+
+Since the Black \emph{vega} $\partial C/\partial\sigma=DF\varphi(d_+)\sqrt\tau>0$, \eqref{eq:black} is strictly increasing in $\sigma$ and therefore inverts on the
+arbitrage-free price interval: the \emph{implied volatility} $\sigma_{\mathrm{IV}}(K,\tau)$ of a
+market quote is the unique root of $C(K,\tau;\sigma)=C^{\mathrm{mkt}}$. The dependence of implied volatility on $(K,\tau)$ describes the volatility smile across strikes and the term structure across maturities, thereby defining the implied volatility surface.
+
+\subsection{Coordinates}
+
+Two changes of variable make the theory tractable. The \emph{log-moneyness} $k=\log(K/F)$
+centres the smile on the forward; the \emph{total (implied) variance} is the natural vertical coordinate:
+\begin{equation}\label{eq:w}
+w(k,\tau)=\sigma_{\mathrm{IV}}^2(k,\tau)\,\tau
+\end{equation}
+Both static no-arbitrage conditions, the risk-neutral
+density and Dupire's formula all take their simplest form in $(k,w)$. Throughout, primes denote
+$\partial_k$ and $\dot w$ or $\partial_\tau w$ the maturity derivative. We also write the
+normalized, undiscounted forward prices $c(k,w)=C/(DF)$, $p(k,w)=P/(DF)$, so that
+\begin{equation}\label{eq:blacknorm}
+c(k,w)=N(d_+)-e^{k}N(d_-),\qquad d_\pm(k,w)=-\frac{k}{\sqrt w}\pm\frac{\sqrt w}{2},
+\end{equation}
+and put--call parity reads $c-p=1-e^{k}$. Note the identity, used repeatedly below,
+\begin{equation}\label{eq:phiid}
+\varphi(d_+)=e^{k}\,\varphi(d_-),
+\end{equation}
+which follows from $d_+^2-d_-^2=(d_++d_-)(d_+-d_-)=(-2k/\sqrt w)(\sqrt w)=-2k$.
+
+\subsection{The Black partial derivatives}
+
+All later derivations reduce to the following closed forms; we prove each in full. 
+
+\begin{lemma}[Black partials in $(k,w)$]\label{lem:blackpartials}
+Let $c(k,w)$ be as in \eqref{eq:blacknorm} and let subscripts denote partial derivatives at
+fixed $(k,w)$. Then
+\begin{align}
+c_k &= -e^{k}N(d_-), \label{eq:ck}\\
+c_w &= \frac{e^{k}\varphi(d_-)}{2\sqrt w}\;=\;\frac{\varphi(d_+)}{2\sqrt w}\;>0, \label{eq:cw}\\
+c_{kk}-c_k &= \frac{e^{k}\varphi(d_-)}{\sqrt w}\;=\;2\sqrt w\, c_w, \label{eq:ckk}\\
+c_{kw} &= \Bigl(\frac12-\frac{k}{w}\Bigr)\,c_w, \label{eq:ckw}\\
+c_{ww} &= \Bigl(-\frac18-\frac{1}{2w}+\frac{k^2}{2w^2}\Bigr)\,c_w. \label{eq:cww}
+\end{align}
+\end{lemma}
+
+
+\begin{proof}
+Throughout, $\partial_k d_\pm=-1/\sqrt w$ and
+$\partial_w d_\pm=\dfrac{k}{2w^{3/2}}\pm\dfrac{1}{4\sqrt w}$.
+
+\begin{enumerate}[label=\textup{(\roman*)}, leftmargin=*]
+
+\item 
+$c_k=\varphi(d_+)\partial_kd_+-e^kN(d_-)-e^k\varphi(d_-)\partial_kd_-
+=-e^kN(d_-)-\dfrac{1}{\sqrt w}\bigl(\varphi(d_+)-e^k\varphi(d_-)\bigr)
+=-e^kN(d_-)$.
+
+\item 
+$c_w=\varphi(d_+)\partial_wd_+-e^k\varphi(d_-)\partial_wd_-
+=e^k\varphi(d_-)\bigl(\partial_wd_+-\partial_wd_-\bigr)
+=\dfrac{e^k\varphi(d_-)}{2\sqrt w}>0$.\\
+Since $\partial w/\partial\sigma=2\sigma\tau$, this recovers the classical
+Black vega $DF\varphi(d_+)\sqrt\tau$.
+
+\item 
+Differentiating \eqref{eq:ck} in $k$ gives
+$c_{kk}=-e^kN(d_-)-e^k\varphi(d_-)\partial_kd_-
+=c_k+\dfrac{e^k\varphi(d_-)}{\sqrt w}$.
+
+\item 
+Differentiating \eqref{eq:ck} in $w$ gives
+$c_{kw}=-e^k\varphi(d_-)\partial_wd_-
+=-e^k\varphi(d_-)\bigl(\dfrac{k}{2w^{3/2}}-\dfrac{1}{4\sqrt w}\bigr)
+=\dfrac{e^k\varphi(d_-)}{2\sqrt w}\bigl(\dfrac12-\dfrac{k}{w}\bigr)
+=\bigl(\dfrac12-\dfrac{k}{w}\bigr)c_w$.
+
+\item 
+Differentiating \eqref{eq:cw} in $w$ and using $\varphi'(x)=-x\varphi(x)$ gives
+\[
+c_{ww}
+=e^k\left[
+\frac{-d_-\varphi(d_-)\partial_wd_-}{2\sqrt w}
+-\frac{\varphi(d_-)}{4w^{3/2}}
+\right]
+=c_w\left[(-d_-)\partial_wd_--\frac{1}{2w}\right].
+\]
+Since $-d_-=\dfrac{k}{\sqrt w}+\dfrac{\sqrt w}{2}$,then $ (-d_-)\partial_wd_-
+=\left(\frac{k}{\sqrt w}+\frac{\sqrt w}{2}\right)
+\left(\frac{k}{2w^{3/2}}-\frac{1}{4\sqrt w}\right)
+=\frac{k^2}{2w^2}-\frac18$.
+\end{enumerate}
+\end{proof}
+
+
+% ============================================================================
+\section{Butterfly arbitrage, the Durrleman function, and the implied density}
+\label{sec:butterflysec}
+% ============================================================================
+
+We now take the two arbitrage directions in turn, starting with the strike direction. At a fixed
+maturity the question is whether the fitted smile corresponds to a valid probability
+distribution over the terminal underlying. Asking for a valid distribution is asking for a
+nonnegative density; by Breeden--Litzenberger that is asking for convexity of the call price in
+strike; and in the $(k,w)$ coordinates that condition collapses to a single scalar built from
+the slice and its first two derivatives. That scalar is the Durrleman function $g$, and the
+entire butterfly audit of this thesis reduces to monitoring its sign. This section builds the
+chain and ends with the complete characterisation, which requires one boundary condition in
+addition to $g\ge0$.
+
+Following \cite{gatheraljacquier2014,durrleman2010,roper2010}, a surface is free of static
+arbitrage if and only if every maturity slice is free of \emph{butterfly} arbitrage and the
+family of slices is free of \emph{calendar} arbitrage (this decomposition is
+\cite[Lemma~2.1]{gatheraljacquier2014}, resting on \cite{coxhobson2005,kellerer1972}). This
+section treats the butterfly direction; Section~\ref{sec:calendarsec} treats the calendar one.
+
+\begin{definition}[Durrleman function and butterfly arbitrage]\label{def:durrleman}
+For a $C^2$ total variance slice $w(\cdot)>0$ at fixed maturity, the associated
+\emph{Durrleman function} is defined by
+\begin{equation}\label{eq:g}
+g(k)=\Bigl(1-\frac{k,w'(k)}{2,w(k)}\Bigr)^{2}
+-\frac{w'(k)^{2}}{4}\Bigl(\frac{1}{w(k)}+\frac14\Bigr)
++\frac{w''(k)}{2}.
+\end{equation}
+The slice is \emph{free of butterfly arbitrage} if and only if the associated call prices
+$k\mapsto c(k,w(k))$ are convex in strike and vanish as $K\to\infty$.
+\end{definition}
+
+
+The next proposition identifies $g$ with the risk-neutral
+density and thereby with the convexity of the call slice. It is the precise statement of the
+slogan \emph{a butterfly violation is negative probability mass}.
+
+\begin{proposition}[Implied density in log-moneyness]\label{prop:density}
+Let $X_T=\log(S_T/F_T)$ and let $w(\cdot)$ be a $C^2$ slice with implied call prices
+$c(k)=c\bigl(k,w(k)\bigr)$ as in \eqref{eq:blacknorm}. The risk-neutral density of $X_T$ is
+\begin{equation}\label{eq:density}
+q(k)=\frac{g(k)}{\sqrt{2\pi\,w(k)}}\,
+\exp\!\Bigl(-\tfrac12 d_-(k)^2\Bigr)
+=\frac{g(k)\,\varphi\bigl(d_-(k)\bigr)}{\sqrt{w(k)}},
+\qquad d_-(k)=d_-\bigl(k,w(k)\bigr),
+\end{equation}
+with $\varphi$ the standard normal pdf. In particular $q\ge 0\iff g\ge 0$.
+\end{proposition}
+
+\begin{proof}
+\noindent\textbf{Step 1: Density in log-moneyness.}
+By Proposition~\ref{prop:shape}(c), the undiscounted density of $S_T$ at $K$ is
+$\partial_{KK}(C/D)$. Since $K=Fe^k$, then $q(k)=K\,\partial_{KK}(C/D).$
+Using $C/D=Fc(k)$ and $\partial_K=K^{-1}\partial_k$,
+we obtain: 
+$
+\partial_{KK}(C/D)
+=\frac1K\partial_k\left[\frac{F}{K}\partial_kc\right]
+=\frac{F}{K^2}\bigl(\partial_{kk}c-\partial_kc\bigr),
+$
+hence
+\begin{equation}\label{eq:qk}
+q(k)=e^{-k}\bigl(\partial_{kk}c-\partial_kc\bigr).
+\end{equation}
+
+\noindent\textbf{Step 2: Total derivatives.}
+For $c(k)=c(k,w(k))$,
+\[
+\partial_kc=c_k+c_ww',
+\qquad
+\partial_{kk}c=c_{kk}+2c_{kw}w'+c_{ww}(w')^2+c_ww''.
+\]
+
+\noindent\textbf{Step 3: Substitution.}
+Using Lemma~\ref{lem:blackpartials} in \eqref{eq:qk},
+\[
+q(k)=e^{-k}c_w\left[
+2\sqrt w-\frac{2kw'}{w}
++\left(\frac{k^2}{2w^2}-\frac{1}{2w}-\frac18\right)(w')^2+w''
+\right].
+\]
+Since $e^{-k}c_w=\varphi(d_-)/(2\sqrt w)$,
+\[
+q(k)=\frac{\varphi(d_-)}{\sqrt w}
+\left[
+1-\frac{kw'}{w}
++\left(\frac{k^2}{4w^2}-\frac{1}{4w}-\frac{1}{16}\right)(w')^2
++\frac{w''}{2}
+\right].
+\]
+The bracket is precisely $g(k)$ from \eqref{eq:g}, so
+\[
+q(k)=g(k)\frac{\varphi(d_-(k))}{\sqrt{w(k)}}.
+\]
+
+\end{proof}
+
+
+Positivity of $q$, i.e.\ $g\ge0$, is however not the whole butterfly story: convexity of the
+call slice controls its \emph{interior}, but the price must also decay at extreme strikes. The
+complete characterisation is the following.
+
+\newpage
+
+\begin{lemma}[{Butterfly characterisation}]
+\label{lem:gjbutterfly}
+A $C^2$ slice $w(\cdot)>0$ is free of butterfly arbitrage if and only if
+\begin{enumerate}[label=(\roman*)]
+\item $g(k)\ge0$ for all $k\in\R$, and
+\item $\displaystyle\lim_{k\to+\infty}d_+\bigl(k,w(k)\bigr)=-\infty$
+(equivalently, $c(k,w(k))\to0$ as $k\to+\infty$).
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}[Proof]
+By Proposition~\ref{prop:density}, $g\ge0$ is equivalent to the convexity of the call slice in
+strike, i.e.\ absence of interior butterfly arbitrage.
+
+For (ii): using \eqref{eq:blacknorm} and \eqref{eq:phiid} with the Mill's-ratio asymptotic
+$N(x)\sim\varphi(x)/|x|$ as $x\to-\infty$,
+\[
+c=N(d_+)-e^kN(d_-)\quad\text{with}\quad
+e^kN(d_-)\sim e^k\frac{\varphi(d_-)}{|d_-|}=\frac{\varphi(d_+)}{|d_-|}
+\]
+whenever $d_-\to-\infty$. If $d_+\to-\infty$ then both $N(d_+)\to0$ and
+$\varphi(d_+)/|d_-|\to0$, so $c\to0$: the total mass of $q$ is $1$ and no mass escapes to
+$+\infty$. Conversely, if $d_+\not\to-\infty$ along some subsequence then $N(d_+)$ stays
+bounded away from $0$ faster than $e^kN(d_-)$ compensates and $c(k)$ does not vanish; a
+nonvanishing call price at infinite strike is the classical arbitrage of selling calls of
+arbitrarily large strike at a price bounded away from zero (see \cite{roper2010} and
+\cite[\S2]{gatheraljacquier2014} for the complete argument, including the local-martingale
+subtleties of \cite{coxhobson2005}).
+\end{proof}
+
+\begin{remark}[Lee's bound]\label{rem:lee}
+Condition (ii) is a constraint on the \emph{wings}: by Lee's moment formula \cite{lee2004},
+any arbitrage-free slice has $w(k)/|k|$ bounded by $2$ as $k\to\pm\infty$, so total variance
+grows at most linearly with asymptotic slope at most $2$. The boundary case
+$w(k)/|k|\to2$ is exactly $d_+\not\to-\infty$, i.e.\ the borderline of
+Lemma~\ref{lem:gjbutterfly}(ii). The corresponding SVI wing condition
+$b(1+|\rho|)\le2$ is derived in Section~\ref{sec:svisec}.
+\end{remark}
+
+% ============================================================================
+\section{Calendar arbitrage and monotone total variance}\label{sec:calendarsec}
+% ============================================================================
+
+Butterfly-freeness is a per-slice property, and it can hold at every single maturity while the
+family of slices remains mutually inconsistent. Even if each maturity is individually a valid
+distribution, the slices must be correctly ordered relative to one another, since an option
+cannot become cheaper by being granted more time. This section shows that the requirement is
+exactly monotonicity of total variance in maturity.
+
+One structural detail deserves attention here rather than later, because the whole of
+Chapter~\ref{ch:learning} turns on it: the calendar condition involves a \emph{first} derivative
+in $\tau$, whereas the butterfly condition involves a \emph{second} derivative in $k$. That
+asymmetry looks like a technicality at this point. Section~\ref{sec:softtheory} shows it is the
+mechanism behind the central finding of the thesis, because a constraint that can fail anywhere
+along an axis and one that concentrates at one end of it require incompatible sampling grids.
+
+\begin{definition}[Calendar arbitrage]\label{def:calendar}
+The surface is free of calendar arbitrage if and only if
+$\tau\mapsto w(k,\tau)$ is non-decreasing for every $k$. Equivalently, total-variance
+slices do not cross.
+\end{definition}
+
+
+\begin{proposition}[Calendar characterisation]\label{prop:calendar}
+Let $c(k,\tau):=c\bigl(k,w(k,\tau)\bigr)$ denote the normalised call surface. The following are
+equivalent:
+\begin{enumerate}[label=(\alph*)]
+\item $\tau\mapsto w(k,\tau)$ is non-decreasing for every $k$;
+\item $\tau\mapsto c(k,\tau)$ is non-decreasing for every $k$;
+\item the surface is consistent, in the calendar direction, with \emph{some} nonnegative
+martingale for the forward-normalised underlying, i.e.\ no calendar-spread portfolio (long the
+longer-dated call, short the shorter-dated call, at equal moneyness $k$) has negative cost and
+nonnegative value.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+\begin{enumerate}[label=\textup{(\roman*)}, leftmargin=*]
+
+\item \textbf{Proof of $(a)\iff(b)$.}
+By Lemma~\ref{lem:blackpartials}, $c_w>0$, so at fixed $k$ the Black price is strictly
+increasing in total variance. Hence $\tau\mapsto w(k,\tau)$ is non-decreasing if and only if
+$\tau\mapsto c(k,\tau)$ is non-decreasing.
+
+\item \textbf{Proof of $(c)\Rightarrow(b)$.}
+Let $(M_u)$ be a nonnegative martingale with $M_t=1$ representing the forward-normalised
+underlying, so that
+$c(k,\tau_i)=\E\bigl[(M_{T_i}-e^k)^+\bigr].$
+For $\tau_1<\tau_2$, conditional Jensen's inequality applied to the convex function
+$x\mapsto(x-e^k)^+$ gives
+\[
+\begin{aligned}
+\E\bigl[(M_{T_2}-e^k)^+\bigr]
+&=\E\Bigl[\E\bigl[(M_{T_2}-e^k)^+\mid\mathcal F_{T_1}\bigr]\Bigr]\\
+&\ge \E\Bigl[\bigl(\E[M_{T_2}\mid\mathcal F_{T_1}]-e^k\bigr)^+\Bigr]\\
+&=\E\bigl[(M_{T_1}-e^k)^+\bigr].
+\end{aligned}
+\]
+Therefore, $c(k,\tau_2)\ge c(k,\tau_1)$.
+
+\item \textbf{Proof of $(b)\Rightarrow(c)$.}
+Assume that (b) holds and that every slice is free of butterfly arbitrage. The marginal laws
+implied by the slices are then increasing in convex order. Kellerer's theorem
+\cite{kellerer1972} yields a martingale with these marginals, so no static portfolio can
+arbitrage the surface.
+
+Conversely, suppose that (b) fails for some $\tau_1<\tau_2$ and $k$, so that $c(k,\tau_2)-c(k,\tau_1)<0.$
+Consider a long $T_2$-call and a short $T_1$-call with the same forward moneyness $k$. The
+portfolio has strictly negative initial cost. At $T_1$, the short leg pays
+$-(M_{T_1}-e^k)^+$, while the value of the long leg is at least its intrinsic value by
+Proposition~\ref{prop:shape}(b). The portfolio therefore has nonnegative value at $T_1$ and
+defines a static arbitrage. The comparison uses equal moneyness rather than equal strike; in
+discounted forward units, the strikes coincide.
+\end{enumerate}
+\end{proof}
+
+\begin{remark}
+Proposition~\ref{prop:calendar} is why the calendar penalty of every learning method in this
+thesis is a penalty on $\partial_\tau w$: it is the complete, coordinate-free content of the
+calendar constraint, and unlike the butterfly constraint, it involves only a \emph{first}
+derivative. This asymmetry between the two constraints (first- vs second-order; anywhere on
+the axis vs concentrated at the short end) is developed in Section~\ref{sec:softtheory} and is
+the mechanism of the collocation blind spot.
+\end{remark}
+
+% ============================================================================
+\section{Dupire's formula in $(k,w)$: the identity that prices the audit}\label{sec:dupiresec}
+% ============================================================================
+
+The two previous sections produced two audit quantities, $g$ and $\partial_\tau w$, and so far
+they are only flags: a surface either satisfies them or does not. This section explains why they
+are considerably more than flags, and it is the reason the audit of this thesis can be given an
+economic denomination at all.
+
+Dupire's insight is that an arbitrage-free surface of European prices already determines a
+diffusion that reprices every vanilla exactly, and that the diffusion's local variance is a
+ratio of derivatives of the surface. Written in our coordinates, that ratio turns out to be
+$\partial_\tau w$ over $g$: the calendar quantity divided by the butterfly quantity. In other
+words, the two things we audit are not incidental diagnostics but the numerator and the
+denominator of the object a desk actually simulates with. A calendar violation is a negative
+local variance; a butterfly violation is a vanishing or exploding one. We derive the equation
+first, then change variables.
+
+\begin{proposition}[Dupire's equation]\label{prop:dupirepde}
+Work under zero rates and dividends (so $D\equiv1$, $F\equiv S_t$, and the forward measure
+coincides with the risk-neutral one). Suppose the underlying follows the local-volatility
+dynamics $\dd S_u=\sigma_{\mathrm{loc}}(u,S_u)\,S_u\,\dd W_u$ and that the transition density
+$p(T,K)$ of $S_T$ is $C^{1,2}$ with $\sigma_{\mathrm{loc}}^2K^2p$ and its $K$-derivative
+vanishing as $K\to\{0,\infty\}$. Then the undiscounted call $C(K,T)$ satisfies
+\begin{equation}\label{eq:dupirepde}
+\partial_T C(K,T)=\tfrac12\,\sigma_{\mathrm{loc}}^2(T,K)\,K^2\,\partial_{KK}C(K,T).
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+The Kolmogorov forward (Fokker--Planck) equation for the density of the driftless diffusion is
+\[
+\partial_T p(T,K)=\tfrac12\,\partial_{KK}\bigl[\sigma_{\mathrm{loc}}^2(T,K)\,K^2\,p(T,K)\bigr].
+\]
+Write $C(K,T)=\int_0^\infty (s-K)^+p(T,s)\dd s=\int_K^\infty(s-K)p(T,s)\dd s$ and
+differentiate under the integral:
+\[
+\partial_T C=\int_K^\infty(s-K)\,\partial_Tp(T,s)\dd s
+=\tfrac12\int_K^\infty(s-K)\,\partial_{ss}\bigl[\sigma_{\mathrm{loc}}^2s^2p\bigr]\dd s.
+\]
+Integrating by parts twice, with the boundary terms at $s=\infty$ vanishing by assumption and
+those at $s=K$ vanishing because $(s-K)$ and its derivative are evaluated where $(s-K)=0$
+(first integration) and the surviving term is picked up at $s=K$ (second integration):
+\[
+\int_K^\infty(s-K)\,\partial_{ss}\bigl[\sigma^2s^2p\bigr]\dd s
+=\Bigl[(s-K)\,\partial_s(\sigma^2s^2p)\Bigr]_K^\infty
+-\int_K^\infty\partial_s(\sigma^2s^2p)\dd s
+=0-\Bigl[\sigma^2s^2p\Bigr]_K^\infty
+=\sigma_{\mathrm{loc}}^2(T,K)K^2p(T,K).
+\]
+Since $p(T,K)=\partial_{KK}C(K,T)$ (Proposition~\ref{prop:shape}(c)), \eqref{eq:dupirepde}
+follows. Dupire's insight \cite{dupire1994} is to read \eqref{eq:dupirepde} backwards: given
+an arbitrage-free call surface, \emph{define}
+$\sigma^2_{\mathrm{loc}}=2\,\partial_TC/(K^2\partial_{KK}C)$; the resulting diffusion reprices
+every vanilla exactly.
+\end{proof}
+
+\begin{proposition}[Local variance as calendar over butterfly]\label{prop:dupire}
+Under the assumptions of Proposition~\ref{prop:dupirepde}, if the implied total-variance
+surface $w(k,\tau)$ is $C^{2,1}$ with $g>0$, the Dupire local variance at $(k,\tau)$ is
+\begin{equation}\label{eq:dupirekw}
+\sigma_{\mathrm{loc}}^{2}(k,\tau)\;=\;\frac{\partial_\tau w(k,\tau)}{g(k,\tau)} .
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Substitute $C=F\,c\bigl(k,w(k,T)\bigr)$ into \eqref{eq:dupirepde}, with $k=\log(K/F)$ fixed as
+$T$ varies (zero carry keeps $F$ constant).
+
+\emph{Left side.} At fixed $K$ (hence fixed $k$), the only $T$-dependence is through $w$:
+$\partial_TC=F\,c_w\,\partial_\tau w$, with $c_w=e^{k}\varphi(d_-)/(2\sqrt w)$ by
+\eqref{eq:cw}. (The Black ``theta'' in these coordinates is carried entirely by $w$.)
+
+\emph{Right side.} By \eqref{eq:qk} and Proposition~\ref{prop:density},
+\[
+K^2\,\partial_{KK}C
+=F\bigl(\partial_{kk}c-\partial_kc\bigr)
+=F\,e^{k}\,q(k)
+=F\,e^{k}\,\frac{g\,\varphi(d_-)}{\sqrt w}.
+\]
+Equating,
+\[
+F\,\frac{e^{k}\varphi(d_-)}{2\sqrt w}\,\partial_\tau w
+=\tfrac12\,\sigma_{\mathrm{loc}}^2\,F\,e^{k}\,\frac{g\,\varphi(d_-)}{\sqrt w}
+\quad\Longleftrightarrow\quad
+\partial_\tau w=\sigma_{\mathrm{loc}}^2\,g,
+\]
+which is \eqref{eq:dupirekw}. This is Gatheral's equation (1.10) \cite{gatheral2011book} in our
+notation.
+\end{proof}
+
+\begin{remark}[Why this identity organises the thesis]\label{rem:organise}
+Equation~\eqref{eq:dupirekw} says that the two no-arbitrage constraints are not abstract flags:
+the \emph{calendar} constraint is the numerator of the local variance and the \emph{butterfly}
+constraint is its denominator. A calendar violation ($\partial_\tau w<0$) is a negative local
+variance; a butterfly violation ($g\le 0$) is a non-positive or exploding one. 
+\end{remark}

@@ -10,10 +10,13 @@
 data/
 logs/
 
-# patched copies of NB03-05 for the cluster — regenerate with
+# nbconvert output collected back from the cluster — kept locally, never committed
+runs/
+*_executed.ipynb
+
+# patched copies of NB03-06 for the cluster — regenerate with
 # `python cluster/patch_notebooks.py build`
 build/
-*_executed.ipynb
 
 # ============================================================
 # PRIVATE / REFERENCE MATERIAL

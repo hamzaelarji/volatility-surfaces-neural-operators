@@ -1,54 +1,46 @@
-% =====================================================================
-%  Appendix
-% =====================================================================
-\chapter{Technical Appendix}
-\label{app:technical}
+% % ============================================================================
+% \chapter{Reproducibility: figure and table map}\label{app:repro}
+% % ============================================================================
 
-\section{The corrected inverse of Lemma 3.2}
-\label{app:lemma32}
-Given JW parameters $(v_t,\psi_t,p_t,c_t,\tilde v_t)$ at maturity $t$, set
-$w_t=v_tt$, $b=\tfrac{\sqrt{w_t}}{2}(c_t+p_t)$ and
-$\rho=(c_t-p_t)/(c_t+p_t)$. Define
-$\beta=\rho-2\psi_t\sqrt{w_t}/b\in(-1,1)$ and
-$\alpha=\operatorname{sign}(\beta)\sqrt{1/\beta^2-1}$, so that
-$\sigma=\alpha m$ and $\sqrt{m^2+\sigma^2}=m/\beta$ for either sign of $m$.
-Substituting into the raw-SVI expressions for $v_t$ and $\tilde v_t$ yields
-\begin{equation}
-  (v_t-\tilde v_t)\,t
-  \;=\; b\,m\left(\frac{1}{\beta}-\rho-\alpha\sqrt{1-\rho^2}\right),
-  \label{eq:lemma32}
-\end{equation}
-which is solved for $m$ (the printed statement omits the
-$-\alpha\sqrt{1-\rho^2}$ term inside the bracket); finally
-$a=\tilde v_t t-b\sigma\sqrt{1-\rho^2}$. The correction was validated by
-round-trips over $2{,}000$ random draws (maximum error $2.7\times10^{-10}$)
-and by exact recovery of the raw Vogt parameters from their JW image.
+% Every number and figure in this manuscript is produced by one of five notebooks; captions
+% name the source figure verbatim. Summary map:
 
-\section{Quasi-explicit calibration: inner problem constraints}
-\label{app:zeliade}
-With $y=(k-m)/\sigma$ and $(a,d,c)=(a,\rho b\sigma,b\sigma)$ the inner
-problem is
-$\min_{(a,d,c)}\sum_i \omega_i\,\big(a+d\,y_i+c\sqrt{y_i^2+1}-w_i\big)^2$
-subject to $0\le c\le4\sigma$, $|d|\le c$, $|d|\le4\sigma-c$ and
-$0\le a\le\max_i w_i$ --- a convex quadratic program solved by SLSQP with
-analytic gradient; the outer $(m,\log\sigma)$ search uses Nelder--Mead with
-three restarts.
+% \begin{itemize}
+% \item \textbf{NB01} (\texttt{01\_data\_cleaning}): quote-count distributions; cleaned quote
+% cloud; forward/parity diagnostics. Output: \texttt{option\_prices\_clean.parquet}.
+% \item \textbf{NB02} (\texttt{02\_svi\_ssvi\_benchmark}): Vogt exhibit (Fig.~``Vogt SVI: w,
+% Durrleman g, implied density''); JW conversions and repair; SSVI certificate table;
+% interpolation; day smiles; bucket figure; domain figure; benchmark tables
+% (Tabs.~\ref{tab:nb02}--\ref{tab:buckets}). Outputs:
+% \texttt{benchmark\_svi\_slices\_full.parquet}, \texttt{benchmark\_ssvi\_days\_full.parquet}.
+% \item \textbf{NB03} (\texttt{03\_deep\_smoother\_v8}): AD validations; GJ certificates;
+% equal-epoch dynamics (Tab.~\ref{tab:ablation}); stress maps, arbitration-at-$k{=}0$, gate and
+% $\lambda$-sweep logs (Tab.~\ref{tab:sweep}); sparsity two-panel; real-day
+% smiles/surface/audit; penalty-ablation quadrant. Outputs:
+% \texttt{deep\_smoother\_days.parquet}, \texttt{nb03\_surfaces/*.npz} (incl.\ the
+% $\lambda{=}0$ counterfactual).
+% \item \textbf{NB04} (\texttt{04\_neural\_operator\_v2}): training curves; transfer bar
+% chart; gated invariance; latency table; per-day regime table; operator summary
+% (Tab.~\ref{tab:opaudit}); unseen-day fit. Outputs: \texttt{nb04\_operator\_run/*.parquet},
+% \texttt{nb04\_surfaces/*.npz}.
+% \item \textbf{NB05} (\texttt{05\_downstream\_economics}): FD-field validation; local-vol
+% heatmaps with repaired cells (Tab.~\ref{tab:localvol}); BL densities
+% (Tab.~\ref{tab:density}); static-arbitrage scanner (Section~\ref{sec:scanner}); residual
+% economics and the F2 backtest incl.\ the clean-vs-dirty counterfactual
+% (Tab.~\ref{tab:f2}); the detection-power frontier (Section~\ref{sec:power}); VIX
+% replication (Tab.~\ref{tab:vix}). Outputs: \texttt{nb05\_local\_vol.parquet},
+% \texttt{nb05\_densities.parquet}, \texttt{nb05\_residual\_economics.parquet},
+% \texttt{nb05\_static\_arb.parquet}, \texttt{nb05\_backtest\_daily.parquet},
+% \texttt{nb05\_backtest\_stats.parquet}, \texttt{nb05\_detection\_frontier.parquet},
+% \texttt{nb05\_vix.parquet}.
+% \end{itemize}
 
-\section{Isotonic repair of the ATM term structure}
-\label{app:pava}
-Raw ATM total variances $\hat\theta_i$ estimated from quotes occasionally
-violate monotonicity in maturity (12\% of sample days). Before the SSVI fit
-they are projected onto the monotone cone by pool-adjacent-violators:
-repeatedly merge adjacent blocks whose means are decreasing, replacing them
-by their weighted mean, until the sequence is non-decreasing. The raw
-inversion counts are reported as a diagnostic in \cref{tab:bench}.
+% \noindent The draft figures generated for Chapter~\ref{ch:theory}
+% (Figures~\ref{fig:vogt}--\ref{fig:oparch}) are produced by \texttt{make\_figures.py} from the
+% closed forms of the text; they are exact but tagged \draftnote{[draft --- \`a valider]} until
+% replaced or confirmed against the notebook versions.
 
-\section{Reproducibility}
-\label{app:repro}
-The pipeline is a sequence of five notebooks --- NB01 data cleaning
-(Polars, lazy streaming), NB02 parametric benchmark, NB03 deep smoother,
-NB04 neural operator, NB05 unified evaluation --- exchanging Parquet files
-with fixed schemas. All stochastic steps are seeded; hold-out splits are
-derived from per-date seeds; chronological splits are used for all
-learning-based methods. \TODO{add repository URL / archive reference and
-package versions.}
+% \noindent Production checklist: NB03 with \texttt{LIMIT\_DATES=None},
+% \texttt{EXPORT\_ALL=True} (parallelise by year, $\sim$30\,h CPU); NB04 on GPU with raised
+% epochs and \texttt{NB04\_EXPORT\_DAYS} covering the NB03 dates; re-run NB05; replace all
+% entries marked $^\dagger$.

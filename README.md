@@ -6,14 +6,14 @@ implied volatility surface.
 ## Layout
 
 ```
-notebooks/   the pipeline — five notebooks, run in order, outputs inline
-cluster/     tooling to execute NB03–NB05 headless on the Telecom cluster
-figures/     figures exported from the notebooks
-thesis/      LaTeX sources (main.tex, chapters/, bibliography.bib)
+notebooks/   the pipeline — six notebooks, run in order
+cluster/     tooling to execute NB03–NB06 headless on the Telecom cluster
+thesis/      LaTeX sources — main.tex, chapters/, figures/
 ```
 
-`data/` and `logs/` are local-only (gitignored): raw quotes, parquet packs,
-`.npz` model packs and run logs are never committed.
+Local-only, gitignored: `data/` (raw quotes, parquet packs, `.npz` model packs),
+`logs/` (cluster run logs) and `runs/` (the `*_executed.ipynb` collected back
+from the cluster).
 
 ## The pipeline
 
@@ -23,12 +23,18 @@ thesis/      LaTeX sources (main.tex, chapters/, bibliography.bib)
 | `02_svi_ssvi_benchmark.ipynb` | SVI / SSVI parametric baselines |
 | `03_deep_smoother.ipynb` | arbitrage-penalised deep smoother |
 | `04_neural_operator.ipynb` | DeepONet / GNO operators, incl. SSVI-prior variants |
-| `05_downstream_economics.ipynb` | hedging and P&L evaluation |
+| `05_downstream_economics.ipynb` | Dupire local vol, densities, trading the violations, VIX replication |
+| `06_path_dependence_barrier.ipynb` | what an arbitrage-dirty surface costs: Heston truth engine, barrier dose–response, delta hedging, digitals |
 
-NB01–NB02 run on a laptop. NB03–NB05 are the expensive ones (~30 h) and are
+NB01–NB02 run on a laptop. NB03–NB06 are the expensive ones (~30 h) and are
 meant for the cluster — see [cluster/README.md](cluster/README.md).
 
-## Running NB03–NB05 remotely
+NB01–NB05 carry their outputs inline. **NB06 does not**: only the executed copy
+in `runs/06_path_dependence_barrier_executed.ipynb` holds its 14 results, and
+that file is local-only. Re-run it, or curate the executed copy back into
+`notebooks/`, before relying on it.
+
+## Running NB03–NB06 remotely
 
 The notebooks in `notebooks/` are the canonical source. The cluster runs a
 *patched* copy: `cluster/patch_notebooks.py` inserts one bootstrap cell that
@@ -39,14 +45,17 @@ mkdir -p build && cp notebooks/0{3,4,5}_*.ipynb build/
 python cluster/patch_notebooks.py build
 ```
 
-Then rsync `build/` plus `cluster/*.sh` to `~/thesis` on the cluster and follow
-[cluster/README.md](cluster/README.md). The patch is idempotent, so the patched
-copies are disposable and are not tracked here.
+The patch is idempotent, so `build/` is disposable and gitignored. Then rsync
+`build/` plus `cluster/*.sh` to `~/thesis` on the cluster and follow
+[cluster/README.md](cluster/README.md) — note the scripts expect a *flat*
+`$THESIS_ROOT`, notebooks and `.sh` side by side.
 
-## Thesis figures
+`cluster/patch_gno_prior.py` is a separate one-off patch that adds
+`NB04_SKIP_GNO_PRIOR`, so `gno_prior` can be skipped while `deeponet_prior`
+still runs.
+
+## Thesis
 
 `thesis/main.tex` pulls figures from `thesis/figures/` via `\maybegraphics`,
-which falls back to a placeholder box when a file is missing. The names it
-expects (`nb02_buckets.png`, `nb03_smiles.png`, …) are *not* the names the
-notebooks currently export into `figures/` (`nb02_c41_0.png`, …) — that mapping
-still has to be done before the final build.
+which degrades to a placeholder box rather than failing when a file is missing.
+All 36 figures it references are present.
