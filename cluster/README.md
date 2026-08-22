@@ -7,8 +7,17 @@ so you transfer once and collect once.
 
 ## What changed in the notebooks
 
-The three notebooks were patched with one inserted cell each (`patch_notebooks.py`,
-idempotent). The patch:
+The cluster does not run `notebooks/` directly, it runs a patched copy built from
+the repo root:
+
+```bash
+mkdir -p build && cp notebooks/0{3,4,5}_*.ipynb build/
+python cluster/patch_notebooks.py build
+```
+
+`patch_notebooks.py` is idempotent and inserts one bootstrap cell per notebook,
+so `build/` is disposable and gitignored — regenerate it, never edit it. The
+patch:
 
 - monkey-patches `plotly.graph_objects.Figure.show`, so **all 18 existing `fig.show()`
   calls now write the figure to disk** as vector PDF (plus interactive HTML) in
@@ -25,8 +34,13 @@ by the env vars you already built.
 
 ## 0. Transfer (once)
 
+The scripts expect a **flat** `$THESIS_ROOT` on the server: notebooks and `.sh`
+files side by side, not in `build/` and `cluster/`.
+
 ```bash
-rsync -avP ~/thesis/ $USER@ssh.enst.fr:/home/infres/$USER/thesis/
+rsync -avP build/*.ipynb cluster/*.sh cluster/requirements_cluster.txt \
+      $USER@ssh.enst.fr:/home/infres/$USER/thesis/
+rsync -avP data/ $USER@ssh.enst.fr:/home/infres/$USER/thesis/data/
 ```
 
 Needed on the server: the three patched notebooks, the `.sh` scripts,
