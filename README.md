@@ -221,93 +221,32 @@ For additional execution details, see [`cluster/README.md`](cluster/README.md).
 
 ## Key references
 
-The project builds on work from implied-volatility modelling, static arbitrage, neural smoothing and neural operators.
+The papers the project is built on:
 
-### Parametric volatility surfaces and static arbitrage
+**Parametric surfaces and static arbitrage**
+- J. Gatheral. *A Parsimonious Arbitrage-Free Implied Volatility Parameterization…* (SVI). Global Derivatives, 2004.
+- J. Gatheral, A. Jacquier. *Arbitrage-Free SVI Volatility Surfaces*. Quantitative Finance 14(1), 2014 — the SSVI framework, replicated and certified here.
+- M. R. Fengler. *Arbitrage-Free Smoothing of the Implied Volatility Surface*. Quantitative Finance 9(4), 2009.
+- N. Kahalé. *An Arbitrage-Free Interpolation of Volatilities*. Risk 17(5), 2004.
+- R. W. Lee. *The Moment Formula for Implied Volatility at Extreme Strikes*. Mathematical Finance 14(3), 2004.
 
-**J. Gatheral.**
-*A Parsimonious Arbitrage-Free Implied Volatility Parameterization with Application to the Valuation of Volatility Derivatives.*
-Global Derivatives, 2004.
+**Neural smoothing and soft constraints**
+- D. Ackerer, N. Tagasovska, T. Vatter. *Deep Smoothing of the Implied Volatility Surface*. NeurIPS, 2020 — the prior × corrector architecture of NB03.
+- K. Hoshisashi, C. E. Phelan, P. Barucca. *No-Arbitrage Deep Calibration for Volatility Smile and Skewness*. arXiv:2310.16703, 2023 — exact autodiff derivatives in the penalties.
+- M. Chataigner, S. Crépey, M. Dixon. *Deep Local Volatility*. Risks 8(3), 2020 — the "constraints act only on the grid" caveat this thesis quantifies.
+- A. G. Baydin, B. A. Pearlmutter, A. A. Radul, J. M. Siskind. *Automatic Differentiation in Machine Learning: a Survey*. JMLR 18(153), 2018.
 
-Introduces the SVI parameterisation used as the starting point for the parametric benchmark.
+**Neural operators**
+- R. Wiedemann, A. Jacquier, L. Gonon. *Operator Deep Smoothing for Implied Volatility*. ICLR, 2025 — the operator setting of NB04.
+- L. Lu, P. Jin, G. Pang, Z. Zhang, G. E. Karniadakis. *Learning Nonlinear Operators via DeepONet…*. Nature Machine Intelligence, 2021.
+- Z. Li, N. Kovachki, et al. *Neural Operator: Graph Kernel Network for PDEs*. arXiv:2003.03485, 2020.
+- N. Kovachki, Z. Li, et al. *Neural Operator: Learning Maps Between Function Spaces…*. JMLR 24(89), 2023.
 
-**J. Gatheral and A. Jacquier.**
-*Arbitrage-Free SVI Volatility Surfaces.*
-Quantitative Finance, 14(1), 2014.
+**Pricing the audit**
+- D. T. Breeden, R. H. Litzenberger. *Prices of State-Contingent Claims Implicit in Option Prices*. Journal of Business 51(4), 1978.
+- B. Dupire. *Pricing with a Smile*. Risk 7(1), 1994.
 
-Provides the SSVI framework and the static no-arbitrage conditions reproduced and used throughout the project.
-
-**M. R. Fengler.**
-*Arbitrage-Free Smoothing of the Implied Volatility Surface.*
-Quantitative Finance, 9(4), 2009.
-
-**N. Kahalé.**
-*An Arbitrage-Free Interpolation of Volatilities.*
-Risk, 17(5), 2004.
-
-**R. W. Lee.**
-*The Moment Formula for Implied Volatility at Extreme Strikes.*
-Mathematical Finance, 14(3), 2004.
-
-### Neural smoothing and soft constraints
-
-**D. Ackerer, N. Tagasovska and T. Vatter.**
-*Deep Smoothing of the Implied Volatility Surface.*
-NeurIPS, 2020.
-
-Provides the prior-times-corrector architecture used as the basis of the deep smoother.
-
-**K. Hoshisashi, C. E. Phelan and P. Barucca.**
-*No-Arbitrage Deep Calibration for Volatility Smile and Skewness.*
-arXiv:2310.16703, 2023.
-
-Motivates the use of exact automatic derivatives inside no-arbitrage penalties.
-
-**M. Chataigner, S. Crépey and M. Dixon.**
-*Deep Local Volatility.*
-Risks, 8(3), 2020.
-
-Discusses the fact that derivative constraints are only evaluated on the selected grid, an issue studied quantitatively in this thesis.
-
-**A. G. Baydin, B. A. Pearlmutter, A. A. Radul and J. M. Siskind.**
-*Automatic Differentiation in Machine Learning: a Survey.*
-Journal of Machine Learning Research, 18(153), 2018.
-
-### Neural operators
-
-**R. Wiedemann, A. Jacquier and L. Gonon.**
-*Operator Deep Smoothing for Implied Volatility.*
-ICLR, 2025.
-
-Provides the neural-operator setting studied in the fourth notebook.
-
-**L. Lu, P. Jin, G. Pang, Z. Zhang and G. E. Karniadakis.**
-*Learning Nonlinear Operators via DeepONet Based on the Universal Approximation Theorem of Operators.*
-Nature Machine Intelligence, 2021.
-
-Introduces DeepONet.
-
-**Z. Li, N. Kovachki et al.**
-*Neural Operator: Graph Kernel Network for Partial Differential Equations.*
-arXiv:2003.03485, 2020.
-
-**N. Kovachki, Z. Li et al.**
-*Neural Operator: Learning Maps Between Function Spaces with Applications to PDEs.*
-Journal of Machine Learning Research, 24(89), 2023.
-
-### Pricing and economic interpretation
-
-**D. T. Breeden and R. H. Litzenberger.**
-*Prices of State-Contingent Claims Implicit in Option Prices.*
-Journal of Business, 51(4), 1978.
-
-Provides the connection between option prices and risk-neutral densities used in the arbitrage audit.
-
-**B. Dupire.**
-*Pricing with a Smile.*
-Risk, 7(1), 1994.
-
-Provides the local-volatility framework used to study how surface defects propagate into downstream pricing quantities.
+The full bibliography is in [thesis/chapters/bibliography.tex](thesis/chapters/bibliography.tex).
 
 ## Takeaway
 
@@ -319,4 +258,4 @@ The most reliable results in this study come from combining learning with struct
 
 In this setting, that combination gives a better fit, removes material static-arbitrage violations on the complete test set, and produces surfaces that remain usable for the downstream quantities that ultimately matter: densities, local volatility, pricing and hedging.
 
-The full bibliography is in [thesis/chapters/bibliography.tex](thesis/chapters/bibliography.tex).
+
