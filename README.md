@@ -29,10 +29,9 @@ from the cluster).
 NB01–NB02 run on a laptop. NB03–NB06 are the expensive ones (~30 h) and are
 meant for the cluster — see [cluster/README.md](cluster/README.md).
 
-NB01–NB05 carry their outputs inline. **NB06 does not**: only the executed copy
-in `runs/06_path_dependence_barrier_executed.ipynb` holds its 14 results, and
-that file is local-only. Re-run it, or curate the executed copy back into
-`notebooks/`, before relying on it.
+NB01–NB02 carry their outputs inline. NB03–NB06 are stored **clean** (small
+cells, markdown narrative, no outputs): their results live in the executed
+copies collected back from the cluster under `runs/` (local-only).
 
 ## Running NB03–NB06 remotely
 
@@ -41,7 +40,7 @@ The notebooks in `notebooks/` are the canonical source. The cluster runs a
 makes `fig.show()` headless-safe and writes every plotly figure to disk.
 
 ```bash
-mkdir -p build && cp notebooks/0{3,4,5}_*.ipynb build/
+mkdir -p build && cp notebooks/0{3,4,5,6}_*.ipynb build/
 python cluster/patch_notebooks.py build
 ```
 

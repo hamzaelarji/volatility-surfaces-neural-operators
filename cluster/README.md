@@ -11,7 +11,7 @@ The cluster does not run `notebooks/` directly, it runs a patched copy built fro
 the repo root:
 
 ```bash
-mkdir -p build && cp notebooks/0{3,4,5}_*.ipynb build/
+mkdir -p build && cp notebooks/0{3,4,5,6}_*.ipynb build/
 python cluster/patch_notebooks.py build
 ```
 
