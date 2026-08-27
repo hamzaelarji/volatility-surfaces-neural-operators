@@ -1,0 +1,102 @@
+% ============================================================================
+\chapter{Conclusion}\label{ch:conclusion}
+% ============================================================================
+
+This thesis set out to benchmark three families of implied-volatility smoothers, and ended by
+changing the question the benchmark asks.
+
+The parametric study came first. Implementing Gatheral and Jacquier's theory and reproducing
+their published values gave us both a validated toolkit and a reference range: per-slice SVI
+fits held-out quotes to $0.64\,\vp$ but leaks butterfly arbitrage on $12\%$ of slices, while
+certified SSVI is arbitrage-free by Theorem~\ref{lem:range} and pays roughly three times the
+error for it. Any learning-based method therefore needs to operate within this range to offer a
+meaningful improvement over the parametric baselines.
+
+The deep smoother landed inside it, and produced the observation around which the rest of the
+thesis was organised. On a stress designed to force a calendar violation, the calendar penalty
+read exactly zero at its collocation nodes while an independent audit found violations on $28\%$
+of the domain. Both numbers were correct. The cause was the grid: exponentially spaced
+maturities, which the literature recommends because the butterfly constraint bites at the short
+end, leave a gap of nearly half a year at the long end, and the optimiser satisfied the penalty
+at every node while letting the surface dip between them. Theorem~\ref{prop:nodegap} formalises
+this mechanism by bounding the size of a violation that can remain hidden between neighbouring
+nodes. Serving each constraint from its own grid reduced material violations from $34.4\%$ to
+zero on the same stress.
+
+The operator study then showed that the problem is not confined to one architecture or to one
+kind of grid. A soft penalty only controls the locations at which it is evaluated. For an
+operator, that limitation extends across days as well, since satisfying the penalty on training
+surfaces does not guarantee the same behaviour on unseen ones. The most accurate model in the
+study, the GNO, is materially butterfly-violating on $355$ of $386$ out-of-sample days while its
+own training-grid audit reads clean.
+
+Chapter~\ref{ch:downstream} asked what that costs. Through
+$\sigma_{\mathrm{loc}}^2=\partial_\tau w/g$, these violations translate directly into
+local-volatility defects: roughly half of the GNO surface requires repair, and the associated
+risk-neutral densities carry up to $230\%$ negative mass. The same deterioration is visible in
+the residual study, where the clean surface outperforms its arbitrage-dirty counterpart in every
+matched backtest cell. A separate
+experiment showed that the market's own spread structure prices out residual mispricings below
+about three volatility points, so the value of a clean surface is in marking and market-making
+rather than in taker-side trading.
+
+Taken together, these results expose a clear trade-off: the model with the best vanilla fit is
+also the one with the weakest downstream validity. The prior-embedded operator of
+Chapter~\ref{ch:methods} addresses it. Fitting a certified SSVI prior per day, and letting the
+operator learn only a bounded multiplicative correction, removes every material violation across
+all $386$ test days while improving the fit from $2.69$ to $1.32\,\vp$. In this experiment the
+added protection therefore comes without a loss of fit.
+
+\paragraph{Main implications.} Three points seem to us to generalise beyond this data set.
+First, a soft no-arbitrage constraint is only as informative as the set on which it was
+evaluated, so independent auditing must extend beyond both the collocation nodes and the
+training dates. Second, where a closed-form certificate exists, incorporating it directly into
+the model provides stronger protection than approximating it with a penalty. Finally, the audit
+should be evaluated in downstream pricing quantities rather than only through violation counts,
+because the same derivatives controlled by the no-arbitrage conditions enter directly into
+densities and local volatility.
+
+The economic reading is more specific than we expected at the outset. Arbitrage violations in a
+fitted surface are not a trading opportunity the market failed to remove: our scanner found
+essentially no executable static arbitrage in eight years of SPX quotes. They are better
+understood as a source of model risk, one that becomes most visible when the surface is used for
+path-dependent products, because such payoffs depend on the surface in regions that vanilla
+quotes constrain only weakly.
+
+\paragraph{Future work.} The results suggest three directions for further work.
+
+The first priority is to complete and verify the experiments that are already in place.
+Notebook~06 contains a path-dependent experiment: a down-and-out call priced under an
+independent Heston ground truth, with a finite-difference cross-check and a paired hedging
+simulation. Its preliminary results are consistent with the findings reported above and suggest
+that the downstream effects may be larger for path-dependent products. Its numerical components
+could not be verified to the standard applied to the rest of this thesis in the time available,
+so we have not reported them as findings, and completing that verification is the immediate next
+step.
+
+The same applies to several larger experiments that were begun but not finished. These include
+the five-year production run, which is intended to replace the staging tables and to test the
+``butterfly binds in stress'' hypothesis on the Volmageddon and COVID weeks, the full
+residual-economics sample, and the VIX variance-swap replication started in Notebook~05. The
+last of these is particularly useful, since it would provide an external benchmark for the
+behaviour of the fitted wings.
+
+The second direction is to test the framework in other markets. Much of the pipeline, including
+the cleaning, the independent audit and the certified-prior architecture, can be carried over to
+bitcoin options. That market provides a useful contrast with SPX: quotes are generally sparser,
+spreads wider, maturities shorter, and static-arbitrage violations potentially more prevalent.
+It may also change the economics of the frontier result, since wider spreads raise the breakeven
+while larger and more persistent mispricings may clear it. A particularly interesting question
+is whether the prior-embedded architecture retains the same protection where SSVI provides a
+weaker description of the underlying smile.
+
+The third direction concerns new model architectures. Several extensions suggested by
+Dr~Arthur Bizzi remain to be explored. One possibility is to transport operator constraints
+across days, either by penalising on generated query days or by introducing certified projection
+layers. Another is to complete the prior-embedded family with the graph operator, whose training
+run could not be retained in the present study. A third is to smooth local volatility directly,
+where Proposition~\ref{prop:dupire} makes the constraint set explicit and
+Theorem~\ref{prop:nodegap} provides a natural starting point for adaptive collocation with a
+provable node-versus-audit bound. The recent non-parametric SANOS framework \cite{sanos2026}
+offers another natural setting in which to test the independent-audit methodology developed
+here.

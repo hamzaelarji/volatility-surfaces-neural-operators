@@ -8,8 +8,9 @@
 
 All experiments use end-of-day SPX option quotes from OptionMetrics IvyDB US, accessed through
 WRDS under secid \texttt{108105}. The sample runs from 2 January 2018 to 29 August 2025 and
-contains 1,926 trading days. It covers several distinct market regimes, including Volmageddon,
-the COVID-19 crash, the 2022 monetary tightening cycle, and the 2024 to 2025 period.
+contains $1{,}926$ trading days, spanning several distinct market regimes: the February 2018
+volatility spike known as Volmageddon, the COVID-19 crash, the 2022 monetary tightening cycle,
+and the 2024--2025 period.
 
 Five OptionMetrics tables enter the pipeline: the option-quote table, the zero-coupon yield
 curve, the forward-price table, the proprietary volatility surface, and a historical-volatility
@@ -17,8 +18,8 @@ series. The proprietary surface is used only as an industry benchmark and never 
 input. The CBOE \texttt{VIX\_History} file provides the published VIX series used for the
 external validation in Section~\ref{sec:vix}.
 
-Notebook~NB01 transforms the raw tables into a single reproducible Parquet dataset used by all
-subsequent notebooks. Each cleaning rule is stated explicitly and enforced by an automated test
+NB01 transforms the raw tables into a single reproducible Parquet dataset consumed by every
+subsequent notebook. Each cleaning rule is stated explicitly and enforced by an automated test
 before the dataset is written to disk.
 
 \subsection{Coordinates and feature engineering}\label{sec:coords}
@@ -33,8 +34,8 @@ Log-moneyness is defined by $k=\log\!\left(\frac{K}{F}\right),$
 where $F$ denotes the forward associated with the quote's expiry. Strikes are rescaled from the OptionMetrics convention using $K=\frac{\texttt{strike\_price}}{1000}.$
 
 A quote is classified as \emph{out of the money} when $k\ge0$ for a call or $k<0$ for a put.
-Only the OTM side is retained because it is generally the more liquid and informative side of
-the volatility smile. It is also the object reconstructed by every model in this thesis.
+Only the OTM side is retained, since it is the more liquid and informative side of the smile and
+is the object every model in this thesis reconstructs.
 
 \subsection{Cleaning rules}\label{sec:cleaning}
 
@@ -54,9 +55,9 @@ About $99.98\%$ of the affected observations are deep in-the-money options. Thei
 almost entirely intrinsic value, which makes a reliable Black inversion difficult relative to
 the quoted spread.
 
-Only about $118$ of the $8.5$ million rows with missing implied volatility are OTM. Since the
-thesis reconstructs the OTM surface and this residual count is negligible, all rows with
-missing implied volatility are removed rather than repaired.
+Of the $8.5$ million raw rows, only about $118$ of those lacking an implied volatility are OTM.
+Since the thesis reconstructs the OTM surface and this residual count is negligible, all rows
+with missing implied volatility are removed rather than repaired.
 
 \subsection{Forwards and discount factors}\label{sec:forwards}
 
@@ -67,15 +68,14 @@ Every retained quote therefore has a valid forward for the construction of the l
 The zero-curve rate at the nearest available horizon is then attached through an as-of join for
 each trading date. The corresponding discount factor is $D=e^{-r\tau}.$
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
     \includegraphics[
         width=0.92\linewidth,
-        trim=0 0 0 2.5cm,
+        trim=0 0 2.65cm 2.5cm,
         clip
     ]{figures/nb01_c08_0.png}
-    \caption{OptionMetrics zero-coupon yield curves on selected trading dates. The curves are
-    used to construct the discount factors required for quote validation.}
+    \caption{OptionMetrics zero-coupon yield curves on ten trading dates spanning the sample, one per year. The near-zero curves of 2020--2021, the steeply rising 2022 curve, and the $4$--$5\%$ levels of 2023--2025 trace the monetary regimes the dataset spans; these rates enter the discount factor $D=e^{-r\tau}$ used for quote validation.}
     \label{fig:nb01curves}
 \end{figure}
 
@@ -103,9 +103,7 @@ vectorised bisection on the Black--76 price. The result is compared with the Opt
 $\mathrm{iv}_{\mathrm{OM}}$. Inversion is attempted only when the observed price satisfies the
 relevant no-arbitrage bounds. This provides an initial quote-level arbitrage screen.
 
-A small median difference between the recomputed volatility and
-$\mathrm{iv}_{\mathrm{OM}}$ validates the forward, discount, coordinate, and inversion code
-jointly.
+The median difference between the recomputed volatility and $\mathrm{iv}_{\mathrm{OM}}$ is small enough to validate the forward, the discount factor, the coordinate change and the inversion code jointly.
 
 \subsection{Reproducibility guardrails}\label{sec:guardrails}
 
@@ -120,10 +118,10 @@ Once all tests pass, the clean dataset is written to disk. Figure~\ref{fig:nb01c
 the number of retained OTM quotes through time. Figure~\ref{fig:nb01cloud} illustrates the
 sparse and irregular geometry of the resulting input on a representative trading day.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
     \includegraphics[
-        width=0.92\linewidth,
+        width=0.82\linewidth,
         trim=0 0 0 2.5cm,
         clip
     ]{figures/nb01_c24_1.png}
@@ -132,10 +130,10 @@ sparse and irregular geometry of the resulting input on a representative trading
     \label{fig:nb01counts}
 \end{figure}
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
     \includegraphics[
-        width=0.92\linewidth,
+        width=0.82\linewidth,
         trim=0 0 0 2.5cm,
         clip
     ]{figures/nb01_c25_0.png}
@@ -145,6 +143,7 @@ sparse and irregular geometry of the resulting input on a representative trading
     \label{fig:nb01cloud}
 \end{figure}
 
+\FloatBarrier
 % ============================================================================
 \section{Evaluation domains and unified protocol}\label{sec:protocol}
 % ============================================================================
@@ -155,10 +154,9 @@ $k=-2.2$. The \emph{paper domain} is restricted to
 $k\in[-0.6,0.4]$, $\mathrm{DTE}\ge10.$
 This second domain facilitates comparison with the existing literature.
 
-For each trading day, $20\%$ of the observations are held out separately within each expiry
-slice. 
-Every model family is consequently evaluated on the same held-out quotes. Content-based seeding
-also ensures that staging and production runs remain comparable on a day-by-day basis.
+For each trading day, $20\%$ of the observations are held out within each expiry slice under a
+deterministic seed, so that every model family is scored on exactly the same quotes. The
+construction is given in Section~\ref{sec:splits}.
 
 Arbitrage is audited both on the quoted domain and on a capped extension. The extended range is
 twice the observed $k$-range and is clipped to $|k|\le1.5.$
@@ -166,9 +164,10 @@ This restriction prevents economically irrelevant strikes from inflating the mea
 violation rates. For example, auditing at $k=-4.4$ would correspond to a strike near one percent
 of spot.
 
-The audit follows conditions (A1) to (A4) of Section~\ref{sec:softtheory}. It uses independent
-grids, blind-spot flags, and separate strict and material statistics with $\mathrm{tol}_{\mathrm{mat}}=10^{-3}.$
-Stress and invariance conclusions are reported only when their validity gates pass.
+The audit follows rules (A1) to (A4) of Section~\ref{sec:softtheory}: independent grids,
+blind-spot flags, and separate strict and material statistics with
+$\mathrm{tol}_{\mathrm{mat}}=10^{-3}$. Stress and invariance conclusions are reported only when
+their validity gates pass.
 
 Aggregate arbitrage statistics are also conditioned on fit validity through the
 \texttt{gated\_*} columns and \texttt{n\_fit\_ok}. A day on which a model fails to fit is
@@ -229,3 +228,23 @@ and progress is monitored by tailing per-shard log files. Results are transferre
 traceable to an executed notebook and a log file, both retained, rather than to an interactive
 session that no longer exists.
 
+With the data cleaned and the scoring protocol fixed, the benchmark can begin.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[
+        width=0.95\linewidth
+    ]{figures/tmux.png}
+
+    \caption{Execution of the production pipeline. NB01 and NB02 run locally and their outputs are
+    transferred once; NB03 to NB06 then run on a single CPU node inside a \texttt{tmux} session, so
+    the computation survives the SSH connection being closed. NB03 fits one network per trading day
+    and is the dominant cost, so it is sharded by calendar year into eight independent jobs, plus a
+    ninth process handling the synthetic stress experiments; each job caps its BLAS thread count and
+    writes to its own output namespace, so no two processes contend for a file and a failed year can
+    be relaunched alone. NB04, NB05 and NB06 consume the shared \texttt{data/clean/} directory and
+    run sequentially afterwards. Every reported number is traceable to a retained executed notebook
+    and its log file.}
+
+    \label{fig:pipeline}
+\end{figure}

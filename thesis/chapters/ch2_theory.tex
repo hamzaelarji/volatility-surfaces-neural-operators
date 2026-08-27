@@ -1,69 +1,43 @@
 % ============================================================================
-\chapter{Static Arbitrage and Parametric Surfaces}\label{ch:theory}
+%  Chapter 2 -- Static Arbitrage and Parametric Surfaces
+%  (merged: former ch2_theory.tex + ch2_theory_b.tex)
+%
+%  PROOF POLICY
+%  ------------
+%  Every statement is given in full here. Proofs carrying an idea the reader
+%  needs are given in place; verification proofs are deferred to
+%  Appendix~\ref{app:proofs} via \proofref{...} and hyperlinked both ways.
+%
+%  Requires in main.tex preamble:
+%    \newcommand{\proofref}[1]{\begin{proof}[Proof]See Appendix~\ref{#1}.\end{proof}}
 % ============================================================================
 
-A smoother is judged on two things it cannot optimise simultaneously: how closely it follows the
-quotes, and whether the prices it manufactures between them are coherent. This chapter builds
-the second half of that sentence. It answers three questions in order, and each answer is used
-somewhere later in the thesis.
+\chapter{Static Arbitrage and Parametric Surfaces}\label{ch:theory}
 
-\emph{What exactly must a surface avoid?} Section~\ref{sec:setting} defines static arbitrage,
-shows why the abstract definition reduces to two concrete conditions, one in the strike
-direction and one in the maturity direction, and explains why those two exhaust the problem
-rather than merely being convenient. \emph{How do we test for it?}
-Sections~\ref{sec:blacksec} to~\ref{sec:calendarsec} translate both conditions into the
-total-variance coordinates $(k,w)$, where the butterfly condition collapses to the sign of a
-single scalar function $g$ and the calendar condition to the sign of a single derivative
-$\partial_\tau w$. These are the two numbers audited on every surface in this thesis.
-\emph{Why should anyone care?} Section~\ref{sec:dupiresec} derives Dupire's identity
-$\sigma^2_{\mathrm{loc}}=\partial_\tau w/g$, which turns out to say that the two audited
-quantities are the numerator and the denominator of the object desks actually price with. That
-identity is what allows Chapter~\ref{ch:downstream} to convert a violation rate into an economic
-cost, and it is the reason the audit is worth performing at all.
+A volatility smoother has to do two things: fit the observed quotes and produce reasonable prices between them. This chapter focuses on the second point.
 
-Sections~\ref{sec:svisec} and~\ref{sec:ssvisec} then introduce the parametric families, SVI and
-SSVI, for which the conditions of this chapter are not merely testable but \emph{provable}. They
-serve three roles later: as the benchmark every learned model must beat, as the certified prior
-inside the deep smoother, and as the source of the closed forms against which our automatic
-differentiation is validated. Chapter~\ref{ch:learning} then turns to model classes for which no
-such proof exists.
+We study butterfly and calendar arbitrage in total-variance coordinates $(k,w)$, where they are captured by the signs of $g$ and $\partial_\tau w$. These quantities are used throughout the thesis to audit fitted surfaces. Dupire's identity,
+$$
+\sigma_{\mathrm{loc}}^2=\frac{\partial_\tau w}{g},
+$$
+then links these conditions directly to local variance and to the pricing analysis of Chapter~\ref{ch:downstream}.
 
-\paragraph{Attribution.} Because this chapter mixes established theory with results developed
-for this thesis, the division is stated once here rather than left implicit. The
-static-arbitrage framework, the Black partials, the Breeden--Litzenberger identity, Dupire's
-equation, the SVI parameterisations and the Gatheral--Jacquier certificates are due to the cited
-authors, and every statement carries its source; our contribution to these sections is
-verification rather than derivation, since each result is re-derived independently and checked
-numerically against the values published by its authors. Two results are exceptions and are
-flagged in place: the correction to the published inverse of the natural-parameter map
-(Remark~\ref{rem:gjtypo}), and the endpoint-certification result (Theorem~\ref{lem:range}),
-which reduces the Gatheral--Jacquier conditions on a compact working range to two endpoint
-checks and is what allows a per-day prior to be \emph{certified} rather than merely audited.
-Section~\ref{sec:softtheory} of the next chapter is original throughout. Proofs of published
-results are reproduced when they are short and used later, and cited when they are long; every
-compression is signalled explicitly.
+The chapter also introduces SVI and SSVI, which provide the parametric benchmark, the arbitrage-free prior used later in the neural models, and closed-form derivatives for validating automatic differentiation.
 
-To make the division visible rather than merely stated, the thesis adopts a naming convention
-throughout: results established by other authors are labelled \emph{Propositions} or
-\emph{Lemmas} and carry an explicit citation in their statement, whereas \emph{Theorems} are
-reserved for results proved here. There are exactly two of the latter,
-Theorem~\ref{lem:range} in this chapter and Theorem~\ref{prop:nodegap} in
-Chapter~\ref{ch:learning}.
+\paragraph{What is ours, and where the proofs are.}
+Most results in this chapter come from the cited literature and are independently re-derived and checked numerically. Two results are original to this thesis: the correction to the natural-parameter inverse (Remark~\ref{rem:gjtypo}) and the endpoint-certification result (Theorem~\ref{lem:range}). Results from the literature are labelled \emph{Proposition} or \emph{Lemma}, while \emph{Theorem} is reserved for original results. Longer verification proofs are given in Appendix~\ref{app:proofs}.
+
+
 
 % ============================================================================
 \section{Market setting and static arbitrage}\label{sec:setting}
 % ============================================================================
 
-Fix a trading date $t$ and let $S=(S_u)_{u\ge t}$ denote the underlying index. For a maturity
-$T>t$ write $\tau=T-t$, let $F=F(t,T)$ be the forward price for delivery at $T$ and
-$D=D(t,T)$ the discount factor. European calls and puts of strike $K$ and maturity $T$ trade at
-prices $C(K,T)$ and $P(K,T)$.
+Fix a trading date $t$ and let $S=(S_u)_{u\ge t}$ denote the underlying index. For a maturity $T>t$ write $\tau=T-t$, let $F=F(t,T)$ be the forward price for delivery at $T$ and $D=D(t,T)$ the discount factor. European calls and puts of strike $K$ and maturity $T$ trade at prices $C(K,T)$ and $P(K,T)$.
 
-We work throughout under the standard \emph{static} and model-free framework: no dynamic model is
-assumed. The only structure imposed on the quoted (or fitted) price surface is the absence of
-\emph{static arbitrage}, i.e.\ the impossibility of forming at time $t$, a buy-and-hold
-portfolio of finitely many calls, puts, forwards and cash whose cost is negative while its
-payoff at the relevant maturities is almost surely nonnegative.
+Throughout, we use a standard \emph{static} and \emph{model-free} framework. The only structure imposed on the quoted (or fitted) price surface is the absence of \textbf{\emph{static arbitrage}}.
+
+\newpage
 
 \begin{definition}[Static arbitrage]\label{def:staticarb}
 A call price surface $(K,T)\mapsto C(K,T)$ admits \emph{static arbitrage} if there exist
@@ -100,12 +74,11 @@ leg has the same defect. The audit performed throughout this thesis is nothing m
 checking these two families of inequalities on the surfaces our models produce, and the whole of
 Chapter~\ref{ch:downstream} is the question of what it costs when they fail.
 
-It is natural to ask why these two directions and not some longer list. The answer, and it is
-what makes a two-constraint audit exhaustive rather than merely convenient, is that under the
-standard positivity, regularity and boundary conditions, which are largely structural (total
-variance positive, correct behaviour as $\tau\downarrow0$, the price bounds of
-Proposition~\ref{prop:shape}, and the wing behaviour of Remark~\ref{rem:lee}), the two
-\emph{nontrivial} directions of static arbitrage are exactly these:
+Why these two directions and not some longer list? This is what makes a two-constraint audit
+exhaustive rather than merely convenient. The remaining requirements are structural rather than
+substantive: total variance positive, correct behaviour as $\tau\downarrow0$, the price bounds of
+Proposition~\ref{prop:shape}, and the wing behaviour of Remark~\ref{rem:lee}. Once they hold, the
+two \emph{nontrivial} directions of static arbitrage are exactly these:
 \[
 \text{no static arbitrage}
 \iff
@@ -124,8 +97,6 @@ order. And a family of marginals increasing in convex order is, by Kellerer's th
 \cite{kellerer1972}, the marginal system of some martingale, which is in turn the absence of
 static arbitrage. Butterfly therefore governs coherence \emph{within} a maturity, calendar
 governs coherence \emph{across} maturities, and together they close the problem.
-
-\newpage
 
 The classical characterisation, which we take as the organising principle of the thesis, is that
 freedom from static arbitrage is equivalent to the existence of a nonnegative
@@ -169,21 +140,25 @@ The \emph{butterfly} portfolio consisting of a position $+\lambda$ at $K_1$, a p
 at $K_2$, and a position $+(1-\lambda)$ at $K_3$ has payoff
 $\lambda(S_T-K_1)^+-(S_T-K_2)^+ +(1-\lambda)(S_T-K_3)^+\ge 0,$
 by convexity of the map $K\mapsto (S_T-K)^+$. Hence, its cost satisfies
-$\lambda c(K_1)-c(K_2)+(1-\lambda)c(K_3)\ge 0.$ \medskip
+$\lambda c(K_1)-c(K_2)+(1-\lambda)c(K_3)\ge 0.$
+
+\medskip
 
 \item The upper bound follows from the dominating payoff $S_T$, whose cost is $F$ and which
 can be replicated using a forward position together with cash. The lower bound follows from
 the dominated payoff $S_T-K$, which can be replicated using a forward position minus cash.
+
 \medskip
-\item Under \eqref{eq:pricingrule}, the undiscounted call is $c(K)=\E\bigl[(S_T-K)^+\bigr].$ Differentiating twice under the expectation gives $\partial_{KK}c(K)=E\bigl[\delta_K(S_T)\bigr],$ which is the density of $S_T$ evaluated at $K$. The positivity of this density is the
+
+\item Under \eqref{eq:pricingrule}, the undiscounted call is $c(K)=\E\bigl[(S_T-K)^+\bigr].$
+Differentiating twice under the expectation gives $\partial_{KK}c(K)=\E\bigl[\delta_K(S_T)\bigr],$
+which is the density of $S_T$ evaluated at $K$. The positivity of this density is the
 infinitesimal counterpart of the convexity established in part~(a). Indeed, the butterfly
 portfolio with strikes $K-\varepsilon$, $K$, and $K+\varepsilon$ has cost
 $\varepsilon^2\partial_{KK}c(K)+o(\varepsilon^2).$
+
 \end{enumerate}
 \end{proof}
-
-\newpage
-
 % ============================================================================
 \section{The Black model, implied volatility, and the $(k,w)$ coordinates}\label{sec:blacksec}
 % ============================================================================
@@ -196,29 +171,21 @@ $Z\sim\mathcal N(0,1)$ and total variance $v=\sigma^2\tau$. The call price is
 C(K,\tau;\sigma)=D\,\bigl[F\,N(d_+)-K\,N(d_-)\bigr],\qquad
 d_\pm=\frac{\log(F/K)}{\sigma\sqrt{\tau}}\pm\frac{\sigma\sqrt{\tau}}{2},
 \end{equation}
-with $N$ the standard normal cdf.
+with $N$ the standard normal cdf. The derivation is standard and is reproduced in
+Appendix~\ref{proof:black}.
 
-% \begin{proof}[Derivation of \eqref{eq:black}]
-% $C/D=F\,\E[(M_T-e^{k})^+]$ with $k=\log(K/F)$. On the event
-% $\{M_T>e^k\}=\{Z>(k+v/2)/\sqrt v\}=\{Z>-d_-\}$ (with $v=\sigma^2\tau$),
-% \[
-% \E[M_T\mathbf 1_{\{Z>-d_-\}}]
-% =\int_{-d_-}^{\infty} e^{\sqrt v z-v/2}\varphi(z)\dd z
-% =\int_{-d_-}^{\infty}\varphi(z-\sqrt v)\dd z
-% =N(d_-+\sqrt v)=N(d_+),
-% \]
-% by completing the square, while $\E[e^k\mathbf 1_{\{Z>-d_-\}}]=e^kN(d_-)$. Multiplying by $F$
-% and noting $Fe^k=K$ gives \eqref{eq:black}.
-% \end{proof}
-
-Since the Black \emph{vega} $\partial C/\partial\sigma=DF\varphi(d_+)\sqrt\tau>0$, \eqref{eq:black} is strictly increasing in $\sigma$ and therefore inverts on the
+Since the Black \emph{vega} $\partial C/\partial\sigma=DF\varphi(d_+)\sqrt\tau>0$,
+\eqref{eq:black} is strictly increasing in $\sigma$ and therefore inverts on the
 arbitrage-free price interval: the \emph{implied volatility} $\sigma_{\mathrm{IV}}(K,\tau)$ of a
-market quote is the unique root of $C(K,\tau;\sigma)=C^{\mathrm{mkt}}$. The dependence of implied volatility on $(K,\tau)$ describes the volatility smile across strikes and the term structure across maturities, thereby defining the implied volatility surface.
+market quote is the unique root of $C(K,\tau;\sigma)=C^{\mathrm{mkt}}$. The dependence of
+implied volatility on $(K,\tau)$ describes the volatility smile across strikes and the term
+structure across maturities, thereby defining the implied volatility surface.
 
 \subsection{Coordinates}
 
 Two changes of variable make the theory tractable. The \emph{log-moneyness} $k=\log(K/F)$
-centres the smile on the forward; the \emph{total (implied) variance} is the natural vertical coordinate:
+centres the smile on the forward; the \emph{total (implied) variance} is the natural vertical
+coordinate:
 \begin{equation}\label{eq:w}
 w(k,\tau)=\sigma_{\mathrm{IV}}^2(k,\tau)\,\tau
 \end{equation}
@@ -229,7 +196,7 @@ normalized, undiscounted forward prices $c(k,w)=C/(DF)$, $p(k,w)=P/(DF)$, so tha
 \begin{equation}\label{eq:blacknorm}
 c(k,w)=N(d_+)-e^{k}N(d_-),\qquad d_\pm(k,w)=-\frac{k}{\sqrt w}\pm\frac{\sqrt w}{2},
 \end{equation}
-and put--call parity reads $c-p=1-e^{k}$. Note the identity, used repeatedly below,
+and put-call parity reads $c-p=1-e^{k}$. Note the identity, used repeatedly below,
 \begin{equation}\label{eq:phiid}
 \varphi(d_+)=e^{k}\,\varphi(d_-),
 \end{equation}
@@ -237,7 +204,7 @@ which follows from $d_+^2-d_-^2=(d_++d_-)(d_+-d_-)=(-2k/\sqrt w)(\sqrt w)=-2k$.
 
 \subsection{The Black partial derivatives}
 
-All later derivations reduce to the following closed forms; we prove each in full. 
+All later derivations reduce to the following closed forms.
 
 \begin{lemma}[Black partials in $(k,w)$]\label{lem:blackpartials}
 Let $c(k,w)$ be as in \eqref{eq:blacknorm} and let subscripts denote partial derivatives at
@@ -251,54 +218,12 @@ c_{ww} &= \Bigl(-\frac18-\frac{1}{2w}+\frac{k^2}{2w^2}\Bigr)\,c_w. \label{eq:cww
 \end{align}
 \end{lemma}
 
+\proofref{proof:blackpartials}
 
-\begin{proof}
-Throughout, $\partial_k d_\pm=-1/\sqrt w$ and
-$\partial_w d_\pm=\dfrac{k}{2w^{3/2}}\pm\dfrac{1}{4\sqrt w}$.
-
-\begin{enumerate}[label=\textup{(\roman*)}, leftmargin=*]
-
-\item 
-$c_k=\varphi(d_+)\partial_kd_+-e^kN(d_-)-e^k\varphi(d_-)\partial_kd_-
-=-e^kN(d_-)-\dfrac{1}{\sqrt w}\bigl(\varphi(d_+)-e^k\varphi(d_-)\bigr)
-=-e^kN(d_-)$.
-
-\item 
-$c_w=\varphi(d_+)\partial_wd_+-e^k\varphi(d_-)\partial_wd_-
-=e^k\varphi(d_-)\bigl(\partial_wd_+-\partial_wd_-\bigr)
-=\dfrac{e^k\varphi(d_-)}{2\sqrt w}>0$.\\
-Since $\partial w/\partial\sigma=2\sigma\tau$, this recovers the classical
-Black vega $DF\varphi(d_+)\sqrt\tau$.
-
-\item 
-Differentiating \eqref{eq:ck} in $k$ gives
-$c_{kk}=-e^kN(d_-)-e^k\varphi(d_-)\partial_kd_-
-=c_k+\dfrac{e^k\varphi(d_-)}{\sqrt w}$.
-
-\item 
-Differentiating \eqref{eq:ck} in $w$ gives
-$c_{kw}=-e^k\varphi(d_-)\partial_wd_-
-=-e^k\varphi(d_-)\bigl(\dfrac{k}{2w^{3/2}}-\dfrac{1}{4\sqrt w}\bigr)
-=\dfrac{e^k\varphi(d_-)}{2\sqrt w}\bigl(\dfrac12-\dfrac{k}{w}\bigr)
-=\bigl(\dfrac12-\dfrac{k}{w}\bigr)c_w$.
-
-\item 
-Differentiating \eqref{eq:cw} in $w$ and using $\varphi'(x)=-x\varphi(x)$ gives
-\[
-c_{ww}
-=e^k\left[
-\frac{-d_-\varphi(d_-)\partial_wd_-}{2\sqrt w}
--\frac{\varphi(d_-)}{4w^{3/2}}
-\right]
-=c_w\left[(-d_-)\partial_wd_--\frac{1}{2w}\right].
-\]
-Since $-d_-=\dfrac{k}{\sqrt w}+\dfrac{\sqrt w}{2}$,then $ (-d_-)\partial_wd_-
-=\left(\frac{k}{\sqrt w}+\frac{\sqrt w}{2}\right)
-\left(\frac{k}{2w^{3/2}}-\frac{1}{4\sqrt w}\right)
-=\frac{k^2}{2w^2}-\frac18$.
-\end{enumerate}
-\end{proof}
-
+The sign in \eqref{eq:cw} is the one fact from this lemma used qualitatively rather than
+computationally: $c_w>0$ says the Black price is strictly increasing in total variance, which is
+what makes implied volatility well defined and what turns the calendar condition of
+Section~\ref{sec:calendarsec} into a statement about $w$ alone.
 
 % ============================================================================
 \section{Butterfly arbitrage, the Durrleman function, and the implied density}
@@ -315,24 +240,21 @@ entire butterfly audit of this thesis reduces to monitoring its sign. This secti
 chain and ends with the complete characterisation, which requires one boundary condition in
 addition to $g\ge0$.
 
-Following \cite{gatheraljacquier2014,durrleman2010,roper2010}, a surface is free of static
-arbitrage if and only if every maturity slice is free of \emph{butterfly} arbitrage and the
-family of slices is free of \emph{calendar} arbitrage (this decomposition is
-\cite[Lemma~2.1]{gatheraljacquier2014}, resting on \cite{coxhobson2005,kellerer1972}). This
-section treats the butterfly direction; Section~\ref{sec:calendarsec} treats the calendar one.
+The decomposition recorded above splits the problem in two; this section treats the butterfly
+direction and Section~\ref{sec:calendarsec} the calendar one. Both follow
+\cite{gatheraljacquier2014,durrleman2010,roper2010}.
 
 \begin{definition}[Durrleman function and butterfly arbitrage]\label{def:durrleman}
 For a $C^2$ total variance slice $w(\cdot)>0$ at fixed maturity, the associated
 \emph{Durrleman function} is defined by
 \begin{equation}\label{eq:g}
-g(k)=\Bigl(1-\frac{k,w'(k)}{2,w(k)}\Bigr)^{2}
+g(k)=\Bigl(1-\frac{k\,w'(k)}{2\,w(k)}\Bigr)^{2}
 -\frac{w'(k)^{2}}{4}\Bigl(\frac{1}{w(k)}+\frac14\Bigr)
 +\frac{w''(k)}{2}.
 \end{equation}
 The slice is \emph{free of butterfly arbitrage} if and only if the associated call prices
 $k\mapsto c(k,w(k))$ are convex in strike and vanish as $K\to\infty$.
 \end{definition}
-
 
 The next proposition identifies $g$ with the risk-neutral
 density and thereby with the convexity of the call slice. It is the precise statement of the
@@ -350,63 +272,35 @@ q(k)=\frac{g(k)}{\sqrt{2\pi\,w(k)}}\,
 with $\varphi$ the standard normal pdf. In particular $q\ge 0\iff g\ge 0$.
 \end{proposition}
 
-\begin{proof}
-\noindent\textbf{Step 1: Density in log-moneyness.}
+\begin{proof}[Proof, first step; completed in Appendix~\ref{proof:density}]
+\textbf{Density in log-moneyness.}
 By Proposition~\ref{prop:shape}(c), the undiscounted density of $S_T$ at $K$ is
 $\partial_{KK}(C/D)$. Since $K=Fe^k$, then $q(k)=K\,\partial_{KK}(C/D).$
 Using $C/D=Fc(k)$ and $\partial_K=K^{-1}\partial_k$,
-we obtain: 
-$
+\[
 \partial_{KK}(C/D)
 =\frac1K\partial_k\left[\frac{F}{K}\partial_kc\right]
 =\frac{F}{K^2}\bigl(\partial_{kk}c-\partial_kc\bigr),
-$
+\]
 hence
 \begin{equation}\label{eq:qk}
 q(k)=e^{-k}\bigl(\partial_{kk}c-\partial_kc\bigr).
 \end{equation}
-
-\noindent\textbf{Step 2: Total derivatives.}
-For $c(k)=c(k,w(k))$,
-\[
-\partial_kc=c_k+c_ww',
-\qquad
-\partial_{kk}c=c_{kk}+2c_{kw}w'+c_{ww}(w')^2+c_ww''.
-\]
-
-\noindent\textbf{Step 3: Substitution.}
-Using Lemma~\ref{lem:blackpartials} in \eqref{eq:qk},
-\[
-q(k)=e^{-k}c_w\left[
-2\sqrt w-\frac{2kw'}{w}
-+\left(\frac{k^2}{2w^2}-\frac{1}{2w}-\frac18\right)(w')^2+w''
-\right].
-\]
-Since $e^{-k}c_w=\varphi(d_-)/(2\sqrt w)$,
-\[
-q(k)=\frac{\varphi(d_-)}{\sqrt w}
-\left[
-1-\frac{kw'}{w}
-+\left(\frac{k^2}{4w^2}-\frac{1}{4w}-\frac{1}{16}\right)(w')^2
-+\frac{w''}{2}
-\right].
-\]
-The bracket is precisely $g(k)$ from \eqref{eq:g}, so
-\[
-q(k)=g(k)\frac{\varphi(d_-(k))}{\sqrt{w(k)}}.
-\]
-
+Expanding the total derivatives of $c(k,w(k))$ and substituting the Black partials of
+Lemma~\ref{lem:blackpartials} into \eqref{eq:qk} recomposes the bracket of \eqref{eq:g}
+exactly. That computation is carried out in Appendix~\ref{proof:density}.
 \end{proof}
 
+Equation~\eqref{eq:qk} is worth isolating, because it is used again in
+Section~\ref{sec:dupiresec}: it says the implied density is, up to the factor $e^{-k}$, the
+second-order strike behaviour of the call slice, which is why butterfly arbitrage and negative
+probability are the same statement read in two coordinate systems.
 
 Positivity of $q$, i.e.\ $g\ge0$, is however not the whole butterfly story: convexity of the
 call slice controls its \emph{interior}, but the price must also decay at extreme strikes. The
 complete characterisation is the following.
 
-\newpage
-
-\begin{lemma}[{Butterfly characterisation}]
-\label{lem:gjbutterfly}
+\begin{lemma}[Butterfly characterisation]\label{lem:gjbutterfly}
 A $C^2$ slice $w(\cdot)>0$ is free of butterfly arbitrage if and only if
 \begin{enumerate}[label=(\roman*)]
 \item $g(k)\ge0$ for all $k\in\R$, and
@@ -415,25 +309,11 @@ A $C^2$ slice $w(\cdot)>0$ is free of butterfly arbitrage if and only if
 \end{enumerate}
 \end{lemma}
 
-\begin{proof}[Proof]
-By Proposition~\ref{prop:density}, $g\ge0$ is equivalent to the convexity of the call slice in
-strike, i.e.\ absence of interior butterfly arbitrage.
+\proofref{proof:gjbutterfly}
 
-For (ii): using \eqref{eq:blacknorm} and \eqref{eq:phiid} with the Mill's-ratio asymptotic
-$N(x)\sim\varphi(x)/|x|$ as $x\to-\infty$,
-\[
-c=N(d_+)-e^kN(d_-)\quad\text{with}\quad
-e^kN(d_-)\sim e^k\frac{\varphi(d_-)}{|d_-|}=\frac{\varphi(d_+)}{|d_-|}
-\]
-whenever $d_-\to-\infty$. If $d_+\to-\infty$ then both $N(d_+)\to0$ and
-$\varphi(d_+)/|d_-|\to0$, so $c\to0$: the total mass of $q$ is $1$ and no mass escapes to
-$+\infty$. Conversely, if $d_+\not\to-\infty$ along some subsequence then $N(d_+)$ stays
-bounded away from $0$ faster than $e^kN(d_-)$ compensates and $c(k)$ does not vanish; a
-nonvanishing call price at infinite strike is the classical arbitrage of selling calls of
-arbitrarily large strike at a price bounded away from zero (see \cite{roper2010} and
-\cite[\S2]{gatheraljacquier2014} for the complete argument, including the local-martingale
-subtleties of \cite{coxhobson2005}).
-\end{proof}
+Condition (i) is the interior condition audited on every surface in this thesis; condition (ii)
+is a constraint on the wings, and a nonvanishing call price at infinite strike is the classical
+arbitrage of selling arbitrarily far out-of-the-money calls at a price bounded away from zero.
 
 \begin{remark}[Lee's bound]\label{rem:lee}
 Condition (ii) is a constraint on the \emph{wings}: by Lee's moment formula \cite{lee2004},
@@ -467,7 +347,6 @@ $\tau\mapsto w(k,\tau)$ is non-decreasing for every $k$. Equivalently, total-var
 slices do not cross.
 \end{definition}
 
-
 \begin{proposition}[Calendar characterisation]\label{prop:calendar}
 Let $c(k,\tau):=c\bigl(k,w(k,\tau)\bigr)$ denote the normalised call surface. The following are
 equivalent:
@@ -481,47 +360,19 @@ nonnegative value.
 \end{enumerate}
 \end{proposition}
 
-\begin{proof}
-\begin{enumerate}[label=\textup{(\roman*)}, leftmargin=*]
-
-\item \textbf{Proof of $(a)\iff(b)$.}
+\begin{proof}[Proof of $(a)\iff(b)$; the remaining implications are proved in
+Appendix~\ref{proof:calendar}]
 By Lemma~\ref{lem:blackpartials}, $c_w>0$, so at fixed $k$ the Black price is strictly
 increasing in total variance. Hence $\tau\mapsto w(k,\tau)$ is non-decreasing if and only if
 $\tau\mapsto c(k,\tau)$ is non-decreasing.
-
-\item \textbf{Proof of $(c)\Rightarrow(b)$.}
-Let $(M_u)$ be a nonnegative martingale with $M_t=1$ representing the forward-normalised
-underlying, so that
-$c(k,\tau_i)=\E\bigl[(M_{T_i}-e^k)^+\bigr].$
-For $\tau_1<\tau_2$, conditional Jensen's inequality applied to the convex function
-$x\mapsto(x-e^k)^+$ gives
-\[
-\begin{aligned}
-\E\bigl[(M_{T_2}-e^k)^+\bigr]
-&=\E\Bigl[\E\bigl[(M_{T_2}-e^k)^+\mid\mathcal F_{T_1}\bigr]\Bigr]\\
-&\ge \E\Bigl[\bigl(\E[M_{T_2}\mid\mathcal F_{T_1}]-e^k\bigr)^+\Bigr]\\
-&=\E\bigl[(M_{T_1}-e^k)^+\bigr].
-\end{aligned}
-\]
-Therefore, $c(k,\tau_2)\ge c(k,\tau_1)$.
-
-\item \textbf{Proof of $(b)\Rightarrow(c)$.}
-Assume that (b) holds and that every slice is free of butterfly arbitrage. The marginal laws
-implied by the slices are then increasing in convex order. Kellerer's theorem
-\cite{kellerer1972} yields a martingale with these marginals, so no static portfolio can
-arbitrage the surface.
-
-Conversely, suppose that (b) fails for some $\tau_1<\tau_2$ and $k$, so that $c(k,\tau_2)-c(k,\tau_1)<0.$
-Consider a long $T_2$-call and a short $T_1$-call with the same forward moneyness $k$. The
-portfolio has strictly negative initial cost. At $T_1$, the short leg pays
-$-(M_{T_1}-e^k)^+$, while the value of the long leg is at least its intrinsic value by
-Proposition~\ref{prop:shape}(b). The portfolio therefore has nonnegative value at $T_1$ and
-defines a static arbitrage. The comparison uses equal moneyness rather than equal strike; in
-discounted forward units, the strikes coincide.
-\end{enumerate}
 \end{proof}
 
-\begin{remark}
+The equivalence with (c) is what gives the condition its meaning: $(c)\Rightarrow(b)$ is
+conditional Jensen applied to the convex payoff $x\mapsto(x-e^k)^+$, and $(b)\Rightarrow(c)$ is
+Kellerer's theorem, since butterfly-free slices increasing in the sense of (b) are marginals
+increasing in convex order. Both directions are given in full in Appendix~\ref{proof:calendar}.
+
+\begin{remark}\label{rem:calpenalty}
 Proposition~\ref{prop:calendar} is why the calendar penalty of every learning method in this
 thesis is a penalty on $\partial_\tau w$: it is the complete, coordinate-free content of the
 calendar constraint, and unlike the butterfly constraint, it involves only a \emph{first}
@@ -545,7 +396,7 @@ ratio of derivatives of the surface. Written in our coordinates, that ratio turn
 $\partial_\tau w$ over $g$: the calendar quantity divided by the butterfly quantity. In other
 words, the two things we audit are not incidental diagnostics but the numerator and the
 denominator of the object a desk actually simulates with. A calendar violation is a negative
-local variance; a butterfly violation is a vanishing or exploding one. We derive the equation
+local variance; a butterfly violation is a vanishing or exploding one. We state the equation
 first, then change variables.
 
 \begin{proposition}[Dupire's equation]\label{prop:dupirepde}
@@ -559,33 +410,13 @@ vanishing as $K\to\{0,\infty\}$. Then the undiscounted call $C(K,T)$ satisfies
 \end{equation}
 \end{proposition}
 
-\begin{proof}
-The Kolmogorov forward (Fokker--Planck) equation for the density of the driftless diffusion is
-\[
-\partial_T p(T,K)=\tfrac12\,\partial_{KK}\bigl[\sigma_{\mathrm{loc}}^2(T,K)\,K^2\,p(T,K)\bigr].
-\]
-Write $C(K,T)=\int_0^\infty (s-K)^+p(T,s)\dd s=\int_K^\infty(s-K)p(T,s)\dd s$ and
-differentiate under the integral:
-\[
-\partial_T C=\int_K^\infty(s-K)\,\partial_Tp(T,s)\dd s
-=\tfrac12\int_K^\infty(s-K)\,\partial_{ss}\bigl[\sigma_{\mathrm{loc}}^2s^2p\bigr]\dd s.
-\]
-Integrating by parts twice, with the boundary terms at $s=\infty$ vanishing by assumption and
-those at $s=K$ vanishing because $(s-K)$ and its derivative are evaluated where $(s-K)=0$
-(first integration) and the surviving term is picked up at $s=K$ (second integration):
-\[
-\int_K^\infty(s-K)\,\partial_{ss}\bigl[\sigma^2s^2p\bigr]\dd s
-=\Bigl[(s-K)\,\partial_s(\sigma^2s^2p)\Bigr]_K^\infty
--\int_K^\infty\partial_s(\sigma^2s^2p)\dd s
-=0-\Bigl[\sigma^2s^2p\Bigr]_K^\infty
-=\sigma_{\mathrm{loc}}^2(T,K)K^2p(T,K).
-\]
-Since $p(T,K)=\partial_{KK}C(K,T)$ (Proposition~\ref{prop:shape}(c)), \eqref{eq:dupirepde}
-follows. Dupire's insight \cite{dupire1994} is to read \eqref{eq:dupirepde} backwards: given
-an arbitrage-free call surface, \emph{define}
+\proofref{proof:dupirepde}
+
+Dupire's insight \cite{dupire1994} is to read \eqref{eq:dupirepde} backwards: given an
+arbitrage-free call surface, \emph{define}
 $\sigma^2_{\mathrm{loc}}=2\,\partial_TC/(K^2\partial_{KK}C)$; the resulting diffusion reprices
-every vanilla exactly.
-\end{proof}
+every vanilla exactly. Changing coordinates turns this into the identity that organises the
+thesis.
 
 \begin{proposition}[Local variance as calendar over butterfly]\label{prop:dupire}
 Under the assumptions of Proposition~\ref{prop:dupirepde}, if the implied total-variance
@@ -625,5 +456,424 @@ notation.
 Equation~\eqref{eq:dupirekw} says that the two no-arbitrage constraints are not abstract flags:
 the \emph{calendar} constraint is the numerator of the local variance and the \emph{butterfly}
 constraint is its denominator. A calendar violation ($\partial_\tau w<0$) is a negative local
-variance; a butterfly violation ($g\le 0$) is a non-positive or exploding one. 
+variance; a butterfly violation ($g\le 0$) is a non-positive or exploding one.
 \end{remark}
+
+% ============================================================================
+\section{SVI: three parameterisations, exact conversions, and the wings}\label{sec:svisec}
+% ============================================================================
+
+Everything so far has been a \emph{test}: given a surface, decide whether it is arbitrage-free.
+Nothing so far tells us how to \emph{build} one. The parametric approach answers that by
+restricting attention to a family small enough that the conditions of the previous sections can
+be checked, and in the best case proved, once and for all in terms of the parameters.
+
+SVI is that family. It has survived two decades of practitioner use for reasons that are worth
+naming, because each of them is used somewhere in this thesis: its derivatives are available in
+closed form, which is what allows us to validate automatic differentiation to machine precision
+in Section~\ref{sec:deep}; it admits three equivalent parameterisations, one convenient for
+calibration, one for the link to stochastic volatility, and one that traders can read off a
+smile; and its wing behaviour matches the model-free bound of Lee exactly. This section develops
+the three parameterisations and the exact maps between them. Those maps carry more weight than
+their bookkeeping appearance suggests: they are the vehicle of the butterfly-repair algorithm of
+Section~\ref{sec:parametric}, and round-tripping through them is what exposed an error in the
+published inverse (Remark~\ref{rem:gjtypo}).
+
+\subsection{The raw parameterisation and its derivatives}
+
+The \emph{raw SVI} slice \cite{gatheral2004} at a fixed maturity $t$ is
+\begin{equation}\label{eq:svi}
+w(k;\chi_R)=a+b\Bigl(\rho\,(k-m)+\sqrt{(k-m)^2+\sigma^2}\Bigr),
+\qquad \chi_R=(a,b,\rho,m,\sigma),
+\end{equation}
+with $b\ge0$, $|\rho|<1$, $\sigma>0$, and $a+b\sigma\sqrt{1-\rho^2}\ge0$ (which, as shown in
+Lemma~\ref{lem:jw} below, is exactly nonnegativity of the minimum of $w$). Its derivatives are
+closed-form:
+\begin{equation}\label{eq:svideriv}
+w'(k)=b\Bigl(\rho+\frac{k-m}{\sqrt{(k-m)^2+\sigma^2}}\Bigr),\qquad
+w''(k)=\frac{b\,\sigma^2}{\bigl((k-m)^2+\sigma^2\bigr)^{3/2}}\;>\;0 .
+\end{equation}
+These closed forms are used in Section~\ref{sec:deep} to validate automatic differentiation to
+machine precision. Note $w''>0$ everywhere: an SVI slice is strictly convex in $k$, yet
+convexity of $w$ in $k$ does not imply convexity of the call in $K$, i.e.\ does not imply
+$g\ge0$.
+
+\subsection{Wing asymptotics and Lee consistency}
+
+From \eqref{eq:svi}, as $k\to\pm\infty$,
+\begin{equation}\label{eq:sviwings}
+w(k)=b\,(1\pm\rho)\,|k|+O(1),
+\end{equation}
+so the asymptotic total-variance slopes are $b(1+\rho)$ (right) and $b(1-\rho)$ (left). Lee's
+moment formula \cite{lee2004} bounds the asymptotic slope of total variance in any
+arbitrage-free slice: $\limsup_{k\to\pm\infty} w(k)/|k|\le 2$. Applying this to both wings gives
+the \emph{wing condition}
+\begin{equation}\label{eq:wingcond}
+b\,(1+|\rho|)\;\le\;2 ,
+\end{equation}
+with strict inequality required for condition (ii) of Lemma~\ref{lem:gjbutterfly}
+($w(k)/k\to2$ is precisely $d_+\not\to-\infty$). Equation \eqref{eq:wingcond} constrains the
+wings only; the interior condition $g\ge0$ has no known tractable characterisation in terms of
+$\chi_R$ and must be checked (Section~\ref{sec:parametric} does so on a fine audit grid).
+
+\subsection{The natural parameterisation and the corrected inverse map}
+
+The \emph{natural} parameterisation writes the same family as a perturbation of a
+time-rescaled Heston-consistent form:
+\begin{equation}\label{eq:svinat}
+w(k;\chi_N)=\Delta+\frac{\omega}{2}
+\Bigl\{1+\zeta\rho\,(k-\mu)+\sqrt{\bigl(\zeta(k-\mu)+\rho\bigr)^2+1-\rho^2}\Bigr\},
+\qquad \chi_N=(\Delta,\mu,\rho,\omega,\zeta).
+\end{equation}
+
+The map between the two is elementary, and we give its derivation in full here rather than in the
+appendix: it is the derivation that supplies the term missing from the published inverse
+(Remark~\ref{rem:gjtypo}).
+
+\begin{lemma}[Raw $\leftrightarrow$ natural, {cf.\ \cite[Lemma~3.2]{gatheraljacquier2014}}]
+\label{lem:rawnat}
+The parameterisations \eqref{eq:svi} and \eqref{eq:svinat} describe the same slice under
+\begin{equation}\label{eq:nat2raw}
+(a,b,\rho,m,\sigma)
+=\Bigl(\Delta+\tfrac{\omega}{2}(1-\rho^2),\;\tfrac{\omega\zeta}{2},\;\rho,\;
+\mu-\tfrac{\rho}{\zeta},\;\tfrac{\sqrt{1-\rho^2}}{\zeta}\Bigr),
+\end{equation}
+with inverse
+\begin{equation}\label{eq:raw2nat}
+(\Delta,\mu,\rho,\omega,\zeta)
+=\Bigl(a- b\sigma\sqrt{1-\rho^2} ,\;
+m+\tfrac{\rho\sigma}{\sqrt{1-\rho^2}},\;\rho,\;
+\tfrac{2b\sigma}{\sqrt{1-\rho^2}},\;\tfrac{\sqrt{1-\rho^2}}{\sigma}\Bigr).
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+Set $v:=\zeta(k-\mu)+\rho$. With $m=\mu-\rho/\zeta$ we have $k-m=v/\zeta$, so the raw form
+reads
+\[
+a+b\Bigl(\rho\frac{v}{\zeta}+\sqrt{\frac{v^2}{\zeta^2}+\sigma^2}\Bigr)
+=a+\frac{b}{\zeta}\Bigl(\rho v+\sqrt{v^2+\zeta^2\sigma^2}\Bigr).
+\]
+With $\sigma=\sqrt{1-\rho^2}/\zeta$, $\zeta^2\sigma^2=1-\rho^2$. The natural form expands as
+\[
+\Delta+\frac{\omega}{2}\bigl\{1+\rho(v-\rho)\bigr\}+\frac{\omega}{2}\sqrt{v^2+1-\rho^2}
+=\Bigl(\Delta+\frac{\omega}{2}(1-\rho^2)\Bigr)
++\frac{\omega}{2}\Bigl(\rho v+\sqrt{v^2+1-\rho^2}\Bigr).
+\]
+Matching coefficients gives $b/\zeta=\omega/2$ and $a=\Delta+\omega(1-\rho^2)/2$, i.e.\
+\eqref{eq:nat2raw}. Solving \eqref{eq:nat2raw} for $\chi_N$: $\zeta=\sqrt{1-\rho^2}/\sigma$,
+$\omega=2b/\zeta=2b\sigma/\sqrt{1-\rho^2}$, $\mu=m+\rho/\zeta=m+\rho\sigma/\sqrt{1-\rho^2}$,
+and
+\[
+\Delta=a-\frac{\omega}{2}(1-\rho^2)=a-\frac{2b\sigma}{2\sqrt{1-\rho^2}}(1-\rho^2)
+=a-b\sigma\sqrt{1-\rho^2}.
+\]
+\end{proof}
+
+\begin{remark}[\textbf{A correction to the published inverse}]\label{rem:gjtypo}
+During the replication, we found that the natural-to-raw inverse reported in
+\cite[Lemma~3.2]{gatheraljacquier2014} is missing the term
+$-b\sigma\sqrt{1-\rho^2}$ in $\Delta$, or equivalently
+$-\alpha\sqrt{1-\rho^2}$ in the notation of the paper. This term appears directly in the derivation above.
+
+The omission matters in practice because any calibration that passes through the natural parameterisation produces an incorrect value of $\Delta$, and therefore an incorrect SVI slice. We identified the issue by testing $2{,}000$ random parameter sets through the cycle raw$\to$natural$\to$JW$\to$raw. With the corrected term, the round trip closes with a maximum error of $2.7\times10^{-10}$. 
+\end{remark}
+
+
+\subsection{The Jump-Wings parameterisation}
+
+The raw and natural parameterisations are useful for calibration but they are not very intuitive: a set such as $(a,b,\rho,m,\sigma)$ does not immediately tell us what the smile looks like. The \emph{Jump-Wings} (JW) parameterisation \cite{gatheraljacquier2014} describes the same slice using five quantities that a trader can read directly from the smile. At maturity $t$, with $w_t:=v_t,t$ the ATM total variance, these are the ATM variance $v_t$ and ATM skew $\psi_t$, which describe the level and slope of the smile at the money; the left and right wing slopes $p_t$ and $c_t$, which describe the steepness of the put and call wings; and the minimum implied variance $\tilde v_t$ may be shifted away from the money when $\psi_t\neq0$.
+
+
+
+\begin{lemma}[JW from raw, {\cite[eq.~(3.5)]{gatheraljacquier2014}}]\label{lem:jw}
+For the raw slice \eqref{eq:svi} at maturity $t$,
+\begin{equation}\label{eq:jw}
+\begin{aligned}
+v_t&=\frac{a+b\bigl(-\rho m+\sqrt{m^2+\sigma^2}\bigr)}{t},
+&\psi_t&=\frac{1}{\sqrt{w_t}}\cdot\frac{b}{2}\Bigl(\rho-\frac{m}{\sqrt{m^2+\sigma^2}}\Bigr),\\
+p_t&=\frac{b\,(1-\rho)}{\sqrt{w_t}},
+&c_t&=\frac{b\,(1+\rho)}{\sqrt{w_t}},\qquad
+\tilde v_t=\frac{a+b\sigma\sqrt{1-\rho^2}}{t}.
+\end{aligned}
+\end{equation}
+\end{lemma}
+
+\proofref{proof:jw}
+
+\begin{lemma}[Raw from JW, {\cite[eq.~(3.6)]{gatheraljacquier2014}}]\label{lem:jwinv}
+Given $(v_t,\psi_t,p_t,c_t,\tilde v_t)$ with $w_t=v_tt$, set
+\begin{equation}\label{eq:jwinv}
+b=\frac{\sqrt{w_t}}{2}\,(c_t+p_t),\qquad
+\rho=1-\frac{p_t\sqrt{w_t}}{b}=\frac{c_t-p_t}{c_t+p_t},\qquad
+\beta:=\rho-\frac{2\psi_t\sqrt{w_t}}{b},\qquad
+\alpha:=\sgn(\beta)\sqrt{\frac1{\beta^2}-1},
+\end{equation}
+(requiring $|\beta|\le1$ for a real solution), and then
+\begin{equation}\label{eq:jwinv2}
+m=\frac{(v_t-\tilde v_t)\,t}
+{b\,\bigl\{-\rho+\sgn(\alpha)\sqrt{1+\alpha^2}-\alpha\sqrt{1-\rho^2}\bigr\}},\qquad
+\sigma=\alpha\,m.
+\end{equation}
+The degenerate case $m=0$ occurs exactly when $v_t=\tilde v_t$, i.e.\ when the minimum of the
+slice sits at the money, so that the numerator of \eqref{eq:jwinv2} vanishes and the formula
+$\sigma=\alpha m$ becomes indeterminate; it is handled separately by
+$\sigma=\bigl((v_t-\tilde v_t)\,t\bigr)/\bigl(b\,(1-\sqrt{1-\rho^2})\bigr)$. Finally,
+$a=\tilde v_t\,t-b\sigma\sqrt{1-\rho^2}$.
+\end{lemma}
+
+\proofref{proof:jwinv}
+
+\subsection{The Vogt smile: arbitrage invisible to the eye}
+
+\begin{example}[{Vogt smile, \cite[Ex.~3.1]{gatheraljacquier2014}}]\label{ex:vogt}
+Consider the raw SVI slice at $t=1$ with parameters
+\[
+(a,\,b,\,m,\,\rho,\,\sigma)=(-0.0410,\;0.1331,\;0.3586,\;0.3060,\;0.4153).
+\]
+This slice looks perfectly regular: total variance stays positive, the smile is convex, and the wing condition \eqref{eq:wingcond} is easily satisfied, with $b(1+|\rho|)=0.174\ll2$. Yet the Durrleman function becomes negative, with $\min_k g=-0.0329$ near $k\approx0.88$, implying a negative density and therefore butterfly arbitrage. Section~\ref{sec:parametric} reproduces the paper's Jump--Wings parameters and repair procedure. This example shows that a smooth-looking smile is not enough: arbitrage must be checked explicitly.
+
+\end{example}
+\vspace{-1.9em}
+\begin{figure}[htbp]
+\centering
+\makebox[\textwidth][c]{%
+    \includegraphics[width=1.1\textwidth]{figures/fig_vogt.png}
+}
+\caption{Vogt SVI slice. Left: total variance is positive and smooth. Centre: the Durrleman function becomes negative on $k\in[0.64,1.26]$. Right: the implied density is negative on the same interval.}
+\label{fig:vogt}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\makebox[\textwidth][c]{%
+    \includegraphics[width=1.1\textwidth]{figures/fig_svi_wings.png}
+}
+\caption{Vogt slice in Jump--Wings form. Left: asymptotic wing slopes $b(1-\rho)$ and $b(1+\rho)$ satisfy Lee's bound. Right: the ATM and minimum variances are shown near the trough, reproducing \cite[Ex.~3.1]{gatheraljacquier2014}.}
+\label{fig:sviwings}
+\end{figure}
+
+\newpage
+
+% ============================================================================
+\section{SSVI and the Gatheral--Jacquier certificates}\label{sec:ssvisec}
+% ============================================================================
+
+\subsection{The surface}
+
+SVI describes one maturity at a time, and fitting each maturity independently gives excellent
+per-slice accuracy with no guarantee that adjacent slices are mutually consistent: nothing
+prevents two of them from crossing, which by Section~\ref{sec:calendarsec} is calendar
+arbitrage. SSVI removes that risk by tying every slice to a single term structure, so the
+calendar direction is controlled by construction rather than repaired afterwards. The price is
+rigidity, and Section~\ref{sec:parametric} measures it precisely.
+
+What makes SSVI valuable here is not only the construction but what Gatheral and Jacquier prove
+about it: closed-form conditions on the parameters under which the surface is provably free of
+both arbitrages. That is a \emph{certificate}, not an audit, and it is the only such object in
+the thesis. It is what the deep smoother of Section~\ref{sec:deep} uses as a prior, and it is
+why the ablation finding that the prior does the protective work rests on a theorem rather than
+on luck.
+
+The \emph{SSVI} (surface SVI) parameterisation \cite{gatheraljacquier2014} promotes SVI to a
+full surface driven by its ATM total-variance term structure $\theta_\tau:=w(0,\tau)$:
+\begin{equation}\label{eq:ssvi}
+w(k,\theta_\tau)=\frac{\theta_\tau}{2}\Bigl(1+\rho\,\varphi(\theta_\tau)\,k
++\sqrt{\bigl(\varphi(\theta_\tau)k+\rho\bigr)^2+1-\rho^2}\Bigr),
+\end{equation}
+where $\varphi:(0,\infty)\to(0,\infty)$ is a smooth curvature function and $|\rho|<1$.
+Evaluating at $k=0$ gives $w(0,\theta)=\theta$: the term structure is matched by construction.
+Throughout this thesis we use the \emph{power law} $\varphi(\theta)=\eta\theta^{-\gamma}$ with
+$\theta_\tau=\alpha\tau^{\beta}$ ($\eta,\alpha,\beta>0$, $\gamma\in(0,1)$).
+
+Every SSVI slice is itself a raw SVI slice. This transports the whole SVI machinery
+(derivatives, $g$-audits, JW readings) to the surface, and it is the first step of the butterfly
+certificate.
+
+\begin{figure}[htbp]
+\centering
+\makebox[\textwidth][c]{%
+    \includegraphics[width=1.1\textwidth]{figures/fig_ssvi.pdf}
+}
+\caption{The SSVI surface \eqref{eq:ssvi} with power-law $\varphi$ and
+$\theta_\tau=\alpha\tau^\beta$, on illustrative parameters ($\rho=-0.7$, $\eta=0.8$,
+$\gamma=0.45$, $\alpha=0.10$, $\beta=0.9$) satisfying \eqref{eq:gjconds} on the plotted range.
+Left: total-variance slices never cross, as guaranteed by Proposition~\ref{thm:gjcal}. Right: the
+corresponding implied-volatility surface, whose skew is the visible signature of
+$\rho<0$.}
+\label{fig:ssvi}
+\end{figure}
+
+\begin{lemma}[SSVI slices are SVI slices]\label{lem:ssvi2svi}
+For fixed $\theta>0$, the slice $k\mapsto w(k,\theta)$ of \eqref{eq:ssvi} equals the raw SVI
+slice \eqref{eq:svi} with parameters
+\begin{equation}\label{eq:ssviraw}
+(a,b,\rho,m,\sigma)
+=\Bigl(\frac{\theta}{2}(1-\rho^2),\;\frac{\theta\varphi(\theta)}{2},\;\rho,\;
+-\frac{\rho}{\varphi(\theta)},\;\frac{\sqrt{1-\rho^2}}{\varphi(\theta)}\Bigr).
+\end{equation}
+\end{lemma}
+
+\proofref{proof:ssvi2svi}
+
+\subsection{The calendar certificate}
+
+\begin{proposition}[{Calendar, \cite[Thm.~4.1]{gatheraljacquier2014}}]\label{thm:gjcal}
+The SSVI surface \eqref{eq:ssvi} is free of calendar arbitrage if and only if
+\begin{enumerate}[label=(\roman*)]
+\item $\tau\mapsto\theta_\tau$ is non-decreasing, and
+\item $0\le\partial_\theta\bigl(\theta\varphi(\theta)\bigr)\le
+\dfrac{1}{\rho^{2}}\Bigl(1+\sqrt{1-\rho^{2}}\Bigr)\varphi(\theta)$ for all $\theta>0$.
+\end{enumerate}
+\end{proposition}
+
+\proofref{proof:gjcal}
+
+The two conditions separate cleanly. The first is the term structure moving in the right
+direction, which is what Definition~\ref{def:calendar} demands at the money. The second controls
+$\theta\varphi(\theta)$, which by \eqref{eq:ssviraw} is twice the SVI slope $b$, and therefore
+governs how fast the slice tilts as $\theta$ grows: its lower bound keeps the wings from moving
+down with maturity, and its upper bound, whose constant is sharp, keeps the tilt from outrunning
+the level and so stops adjacent slices crossing away from the money.
+
+For the family used, the second condition costs nothing.
+
+\begin{example}[Power law satisfies (ii) automatically]\label{ex:powerlawcal}
+For $\varphi(\theta)=\eta\theta^{-\gamma}$, writing
+$\psi(\theta):=\theta\varphi(\theta)=\eta\theta^{1-\gamma}$ gives
+$\psi'(\theta)=(1-\gamma)\varphi(\theta)$, so condition (ii) reads
+$0\le1-\gamma\le(1+\sqrt{1-\rho^2})/\rho^2$. The right-hand side is at least $1$ for every
+$\rho$, while $1-\gamma\in(0,1)$, so the condition holds for all $\gamma\in(0,1)$ and all
+$\rho$: with a non-decreasing $\theta_\tau$, the power-law SSVI is calendar-free for free.
+\end{example}
+
+\subsection{The butterfly certificate}
+
+The strike direction is where the real constraint sits.
+
+\begin{proposition}[{Butterfly, \cite[Thm.~4.2]{gatheraljacquier2014}}]\label{thm:gjbfly}
+The SSVI surface is free of butterfly arbitrage if, for all $\theta>0$,
+\begin{equation}\label{eq:gjconds}
+\theta\varphi(\theta)\,(1+|\rho|)<4
+\qquad\text{and}\qquad
+\theta\varphi(\theta)^{2}\,(1+|\rho|)\le4 .
+\end{equation}
+Together with Proposition~\ref{thm:gjcal} this yields freedom from \emph{static} arbitrage
+(\cite[Cor.~4.1]{gatheraljacquier2014}).
+\end{proposition}
+
+\proofref{proof:gjbfly}
+
+Each condition controls one feature of the slice. The first is the Lee wing bound
+\eqref{eq:wingcond} rewritten for SSVI, since $b=\theta\varphi/2$ by \eqref{eq:ssviraw}; it
+governs the \emph{wings} and delivers condition (ii) of Lemma~\ref{lem:gjbutterfly}. The second
+bounds $\theta\varphi^2$, the slice's natural \emph{curvature scale}, which is exactly the
+combination through which the terms amplified by $1/w$ in \eqref{eq:g} can drive $g$ negative.
+
+We do not merely quote these two propositions: both are implemented as \emph{executable
+certificates} and verified against the paper's own published condition values
+(Section~\ref{sec:parametric}).
+
+\begin{example}[$\varphi$ families]\label{ex:phifamilies}
+Two other families admit a global certificate: the Heston-like
+$\varphi(\theta)=\frac{1}{\lambda\theta}\bigl(1-\frac{1-e^{-\lambda\theta}}{\lambda\theta}\bigr)$
+for $\lambda\ge(1+|\rho|)/4$, and the modified power law
+$\varphi(\theta)=\eta\theta^{-\gamma}(1+\theta)^{\gamma-1}$ with $\gamma\in(0,\tfrac12]$ and
+$\eta(1+|\rho|)\le2$. All three, including the plain power law used here, are implemented and
+verified in NB02 against the paper's published condition values.
+\end{example}
+
+\begin{remark}[{Why the plain power law cannot be certified globally;
+\cite[Rem.~4.4]{gatheraljacquier2014}}]\label{rem:gj44}
+The plain power law cannot satisfy \eqref{eq:gjconds} on all of $(0,\infty)$:
+$\theta\varphi=\eta\theta^{1-\gamma}\to\infty$ as $\theta\to\infty$, and for $\gamma>\tfrac12$
+also $\theta\varphi^2\to\infty$ as $\theta\downarrow0$. No choice of $(\eta,\gamma)$ escapes
+both. But this is the wrong question to ask of a smoother, which never evaluates more than a
+\emph{compact} range of $\theta$ — and on a compact range the certificate collapses to two
+endpoint checks.
+\end{remark}
+
+\subsection{Endpoint certification on the working range}
+
+\begin{theorem}[Endpoint certification]\label{lem:range}
+Let $\varphi(\theta)=\eta\theta^{-\gamma}$ with $\eta>0$, $\gamma\in(0,1)$, and let
+$0<\theta_{\min}\le\theta\le\theta_{\max}$ be the range attained by
+$\theta_\tau=\alpha\tau^{\beta}$ on the working maturities $[\tau_{\min},\tau_{\max}]$
+($\alpha,\beta>0$). Then
+\[
+\sup_{\theta\in[\theta_{\min},\theta_{\max}]}\theta\varphi(\theta)
+=\eta\,\theta_{\max}^{1-\gamma},
+\qquad
+\sup_{\theta\in[\theta_{\min},\theta_{\max}]}\theta\varphi(\theta)^{2}
+=\eta^{2}\max\bigl(\theta_{\max}^{\,1-2\gamma},\,\theta_{\min}^{\,1-2\gamma}\bigr).
+\]
+Consequently, checking \eqref{eq:gjconds} at the two endpoints certifies the SSVI surface free
+of static arbitrage on the entire working domain $[\tau_{\min},\tau_{\max}]\times\R$.
+\end{theorem}
+
+\begin{proof}
+$\theta\varphi(\theta)=\eta\theta^{1-\gamma}$ is increasing for $\gamma<1$, so its supremum is
+at $\theta_{\max}$. $\theta\varphi(\theta)^2=\eta^2\theta^{1-2\gamma}$ is increasing iff
+$\gamma\le\tfrac12$ (supremum at $\theta_{\max}$) and decreasing iff $\gamma>\tfrac12$
+(supremum at $\theta_{\min}$); the displayed maximum covers both. Monotonicity of
+$\theta_\tau=\alpha\tau^\beta$ maps $[\tau_{\min},\tau_{\max}]$ onto
+$[\theta_{\min},\theta_{\max}]$, so the working $\theta$-range is exactly this interval;
+conditions \eqref{eq:gjconds} on the range then follow from the two endpoint evaluations, and
+Proposition~\ref{thm:gjbfly} plus Example~\ref{ex:powerlawcal} plus Proposition~\ref{thm:gjcal}(i)
+give static-arbitrage-freeness on $[\tau_{\min},\tau_{\max}]\times\R$.
+\end{proof}
+
+\thfig{figures/fig_phi_certificate.png}{1.0}{Endpoint certification
+(Theorem~\ref{lem:range}) with $\eta=0.8$, $\rho=-0.7$ on the working range
+$[\theta_{\min},\theta_{\max}]=[0.01,0.20]$ (dotted). Left: $\theta\varphi(\theta)$ is increasing
+for every $\gamma\in(0,1)$, so its supremum (marker) always sits at $\theta_{\max}$, here far
+below the bound $4/(1+|\rho|)$ (dashed red). Right, on a log scale: $\theta\varphi(\theta)^2$ is
+increasing for $\gamma=0.45$ and decreasing for $\gamma=0.70$, so the supremum moves to the
+opposite endpoint. The $\gamma=0.70$ family breaches the bound at $\theta_{\min}$ ($4.04$ against
+$2.35$, red), which is precisely what the two endpoint checks detect; projecting $\eta$ down to
+$0.61$ (dotted) restores the certificate on the whole range.}{fig:phicert}
+
+\begin{remark}\label{rem:cert}
+Theorem~\ref{lem:range} turns the Gatheral--Jacquier conditions from an \emph{audit} into a
+\emph{constraint}: the prior calibrator imposes \eqref{eq:gjconds} at the endpoints during the
+search, hard-projects $\eta$ afterwards, and prints a certificate. Anything below $\tau_{\min}$
+remains uncertified extrapolation, flagged as such downstream, which is why the Monte-Carlo time
+grids of Chapter~\ref{ch:downstream} are floored at $\tau_{\min}$. The gain is not only
+theoretical: an earlier calibrator clipped $\gamma\le\tfrac12$ so as to certify on
+$(0,\theta_{\max}]$, but SPX data prefer $\gamma>\tfrac12$, and the clip cost about
+$0.5\,\vp$ of prior accuracy. The endpoint form recovers it at no loss of guarantee.
+\end{remark}
+
+\subsection{Interpolation, extrapolation, and crossedness}
+
+Two further Gatheral--Jacquier results are used by the parametric benchmark, one for filling
+gaps between calibrated slices and one for measuring the damage when slices cross.
+
+Between two calibrated slices $w_1,w_2$ at ATM total variances $\theta_1<\theta_2$,
+butterfly-free and non-crossing, \cite[Lem.~5.1]{gatheraljacquier2014} construct an
+\emph{arbitrage-free interpolation} at any intermediate $\theta_t\in[\theta_1,\theta_2]$. The
+trick is to interpolate in \emph{price} space rather than directly on $w$: with the
+$\sqrt{\theta}$-weight
+\begin{equation}\label{eq:interp}
+\alpha=\frac{\sqrt{\theta_2}-\sqrt{\theta_t}}{\sqrt{\theta_2}-\sqrt{\theta_1}}\in[0,1],
+\end{equation}
+one takes the convex combination of the two normalised call slices and inverts it back through
+the Black map \eqref{eq:blacknorm},
+\begin{equation}\label{eq:interp2}
+w(k,\theta_t)=c^{-1}\!\Bigl(k,\;\alpha\,c\bigl(k,w_1(k)\bigr)+(1-\alpha)\,c\bigl(k,w_2(k)\bigr)\Bigr),
+\end{equation}
+where $c^{-1}(k,\cdot)$ is Black inversion at fixed $k$, unique since $c_w>0$
+(Lemma~\ref{lem:blackpartials}). A convex combination of convex prices stays convex, so the
+interpolated slice is butterfly-free by construction. Beyond the last calibrated maturity we
+extrapolate by the dominating shift
+$w_{\mathrm{ext}}(k)=w_2(k)+(\theta_{\mathrm{far}}-\theta_2)$, which lifts the whole slice and
+so introduces no crossing. Both are implemented and checked numerically: the interpolated slice
+attains $\min_k g=0.52$, and the extrapolated slice dominates the last calibrated one
+everywhere.
+
+When fitted slices \emph{do} cross, the crossing is quantified by the \emph{crossedness} of
+\cite[Def.~5.1]{gatheraljacquier2014}: for adjacent slices $\chi_1,\chi_2$ with intersection
+points $\tilde k_1,\dots,\tilde k_n$, it is the maximum over these points of
+$\max\bigl(0,\,w(\tilde k;\chi_1)-w(\tilde k;\chi_2)\bigr)$. A penalty on total crossedness is
+the calendar-repair device of Section~\ref{sec:parametric}.
+

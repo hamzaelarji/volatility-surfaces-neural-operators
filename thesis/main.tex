@@ -1,31 +1,18 @@
 % ============================================================================
 %  Arbitrage-Free Implied Volatility Surface Construction:
 %  From Parametric Models to Neural Operators
-%
-%  MSc Mathematics and Finance — Imperial College London, 2025-2026
-%
-%  Cover designed after the OFFICIAL Department of Mathematics MSc thesis
-%  template (logo top-left, institution line, twin rules framing the title,
-%  author + CID, degree statement) restyled as a research working paper, on the
-%  official Imperial brand palette:
-%     Navy #002147 · Imperial Blue #003E74 · Pool Blue #00A0C8
-%     Cool Grey #9D9D9D · Light Grey #EBEEEE · Dark Grey #373A36
-%  Source: imperial.ac.uk/brand-style-guide/visual-identity/brand-colours
-%
-%  LOGO: drop the official crest at figures/imperial-logo.png. Until then a red
-%  placeholder box is drawn automatically. The standard logo artwork is made for
-%  LIGHT backgrounds, which is why it sits on white below the navy edge band.
+%  MSc Mathematics and Finance, Imperial College London, 2025-2026
 % ============================================================================
 \documentclass[11pt,a4paper]{report}
-
+\usepackage{fontawesome5}
 \usepackage[a4paper,margin=2.5cm]{geometry}
+
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[expansion=false]{microtype}   % typography + \textls letterspacing
 \usepackage{amsmath,amssymb,amsthm,mathtools,bm}
 \usepackage{booktabs}
 \usepackage{graphicx}
-
 \usepackage{caption}
 \usepackage{tabularx}
 \usepackage{booktabs}
@@ -40,6 +27,11 @@
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 \usepackage{setspace}
 \onehalfspacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\usepackage{float}
 
 % ---- official Imperial brand palette ---------------------------------------
 \definecolor{impnavy}{HTML}{002147}    % Navy
@@ -95,7 +87,7 @@
 \newcommand{\nbfig}[3]{%
 \begin{figure}[htbp]\centering
 \fcolorbox{red}{red!4}{\parbox[c][4.6cm][c]{0.9\linewidth}{\centering
-\textcolor{red}{\large\textbf{PLACEHOLDER --- FIGURE NOTEBOOK}}\\[4pt]
+\textcolor{red}{\large\textbf{PLACEHOLDER: FIGURE NOTEBOOK}}\\[4pt]
 \textcolor{red}{\texttt{#1}}\\[4pt]
 \textcolor{red}{\small (ins\'erer la sortie du notebook ici)}}}
 \caption{#2}\label{#3}
@@ -103,7 +95,7 @@
 \newcommand{\draftfig}[4]{%
 \begin{figure}[htbp]\centering
 \includegraphics[width=#2\linewidth]{#1}
-\caption{#3 \draftnote{Figure g\'en\'er\'ee (formes ferm\'ees) pour ce brouillon --- \`a valider/remplacer par la sortie notebook.}}\label{#4}
+\caption{#3 \draftnote{Figure g\'en\'er\'ee (formes ferm\'ees) pour ce brouillon, \`a valider/remplacer par la sortie notebook.}}\label{#4}
 \end{figure}}
 % figure théorique (formes fermées = vérité mathématique, pas de sortie notebook attendue)
 \newcommand{\thfig}[4]{%
@@ -122,6 +114,20 @@
 \newcommand{\thesissubtitle}{From Parametric Models to Neural Operators}
 \newcommand{\thesisauthor}{Hamza El Arji}
 \newcommand{\thesiscid}{06020926}
+\newcommand{\proofref}[1]{\begin{proof}[Proof]See Appendix~\ref{#1}.\end{proof}}
+\usepackage{etoolbox}
+
+\makeatletter
+\patchcmd{\@makechapterhead}
+  {\vskip 40\p@}
+  {\vskip 10\p@}
+  {}{}
+
+\patchcmd{\@makeschapterhead}
+  {\vskip 40\p@}
+  {\vskip 10\p@}
+  {}{}
+\makeatother
 
 \begin{document}
 
@@ -178,71 +184,72 @@
 % ================================================================ declaration
 \chapter*{Declaration}
 
-The work contained in this thesis is my own unless otherwise stated.
-Generative AI tools were used for language editing, structural suggestions,
-and assistance with code debugging and routine implementation. They were not
-used to generate research results. All mathematical derivations, numerical
-results, figures, tables, and literature claims were produced or independently
-verified by the author, who takes full responsibility for the content of this thesis.\\[1.2cm]
+The work contained in this thesis is my own unless otherwise stated. Generative AI tools were used for language editing, structural suggestions, and assistance with code debugging and pipeline implementation. They were not used to generate research results. I produced or independently verified all mathematical derivations, numerical results, figures, tables, and literature claims, and I take full responsibility for the content of this thesis.
+
 
 
 % ================================================================ abstract
 \chapter*{Abstract}
-The implied volatility surface is the central object of equity derivatives markets, yet it is only
-ever observed as a sparse, noisy, irregular cloud of option quotes. Reconstructing a complete,
-smooth, arbitrage-free surface from these observations is an ill-posed inverse problem whose
-solution feeds pricing, hedging and risk management. This thesis studies the problem across the
-full methodological spectrum on a single unified S\&P~500 dataset (OptionMetrics, 2018--2025):
-the parametric benchmark of Gatheral--Jacquier (SVI per slice, SSVI surface-wide, with their
-complete no-arbitrage theory replicated and validated against the original paper), a
+
+
+
+
+
+
+\hspace*{1em} The implied volatility surface is the central object of equity derivatives markets, yet it is only ever observed as a sparse, noisy, irregular cloud of option quotes. Reconstructing a complete, smooth, arbitrage-free surface from these observations is an ill-posed inverse problem whose solution feeds pricing, hedging and risk management. 
+
+\hspace*{1em} This thesis studies the problem across the full methodological spectrum on a single unified S\&P~500 dataset (OptionMetrics, 2018--2025): the parametric benchmark of Gatheral--Jacquier (SVI per slice, SSVI surface-wide, with their complete no-arbitrage theory replicated and validated against the original paper), a
 derivative-constrained deep smoother in the spirit of Ackerer et al.\ and Hoshisashi et al.\
 (an SSVI prior multiplied by a neural corrector, no-arbitrage enforced through exact automatic
 differentiation), and neural operators following Operator Deep Smoothing, which learn the
 smoothing map itself and apply to unseen days without retraining. All methods share one
 evaluation protocol: hold-out reconstruction error, a static-arbitrage audit built on the
 Durrleman condition, robustness to quote sparsity, and behaviour across market regimes.
-The thesis's central contribution is methodological and transversal: \textbf{\emph{soft no-arbitrage penalties are enforced only where they are sampled}}. We exhibit a collocation blind spot in
-which a calendar penalty is \emph{exactly} zero at its training nodes while an independent audit
-grid reveals a $28\%$ violation rate between them; we trace it to the interaction between
-exponential maturity spacing and the geometry of calendar arbitrage; 
 
-We repair it using constraint-specific collocation grids, reducing material violations from $34.4\%$ to $0.0\%$ in a controlled stress test whose validity is verified by a two-condition gate. We then demonstrate the same pathology in a stronger two-dimensional setting, where violations remain undetected both between nodes and across days. In the neural operator, the penalty-grid audit reports near-zero violations, whereas the independent audit identifies material butterfly violations on $330$ of $386$ out-of-sample days.
-
-
-The Gatheral--Jacquier conditions are used constructively: our SSVI prior is \emph{certified}
+\hspace*{1em} The thesis's central contribution is methodological and transversal: \emph{soft no-arbitrage penalties are enforced only where they are sampled}. We exhibit a collocation blind spot in which a calendar penalty is \emph{exactly} zero at its training nodes while an independent audit grid reveals a $28\%$ violation rate between them; we trace it to the interaction between exponential maturity spacing and the geometry of calendar arbitrage; we repair it with
+constraint-specific collocation grids, reducing material violations from $34.4\%$ to $0.0\%$ on a
+controlled stress test whose validity is itself verified by a two-condition gate; and we then show
+the same pathology, in a stronger, two-dimensional form that is blind between nodes \emph{and} across days, in the neural operator, where the penalty-grid audit reports near-zero violations while the independent audit flags up to $356$ of $386$ out-of-sample days as materially butterfly-violating. The Gatheral--Jacquier conditions are used constructively: our SSVI prior is \emph{certified}
 statically arbitrage-free on its working domain rather than luckily so. Finally, the audit is
 priced: through the identity $\sigma_{\mathrm{loc}}^2 = \partial_\tau w / g$, arbitrage violations
 become negative local variances (up to $50\%$ of the operator's surface requires repair before a
-single Monte-Carlo path can be drawn) and negative risk-neutral density mass (up to $230\%$ on
-some slices), and a residual-economics pipeline shows that surface dirtiness measurably degrades
-the information content of quote-model residuals. The conclusion is a change of question: not
-\textbf{\emph{which model fits best}}, but \textbf{\emph{what a model's constraints actually guarantee, on which
-set, and at what economic cost when they silently fail}}.
+single Monte-Carlo path can be drawn) and negative risk-neutral density mass (up to $230\%$ on some slices), and a residual-economics pipeline shows that surface dirtiness measurably degrades the information content of quote--model residuals. The conclusion is a change of question: not \emph{which model fits best}, but \emph{what a model's constraints actually guarantee, on which set, and at what economic cost when they silently fail}.
+
+
 
 % ================================================================ acknowledgements
 \chapter*{Acknowledgements}
-I am very proud to present this thesis as the culmination of my MSc studies. I would especially like to thank my parents, whose constant support, encouragement, and sacrifices have made it possible for me to reach this point.
 
-I also thank Professor Thomas Cass for his guidance, and Dr.~Arthur Bizzi for discussions on neural operators. 
+\begingroup
+\setlength{\parindent}{0pt}
 
-All code, data pipelines, and figures are available and fully reproducible from the five
-notebooks (NB01--NB05) available on \href{}{GitHub}.
+I am very proud to present this thesis as the culmination of my MSc studies. I would especially like to thank my parents, whose constant support, encouragement and sacrifices have made it possible for me to reach this point.
+
+I also thank Professor Thomas Cass for his guidance, and Dr.~Arthur Bizzi for discussions on neural operators.
+
+All code, data pipelines and figures are available and fully reproducible from the six notebooks (NB01--NB06), available on \href{https://github.com/hamzaelarji/volatility-surfaces-neural-operators.git}{\faGithub\ GitHub}.
+
+\endgroup
 
 
 % ================================================================ contents
+\setcounter{tocdepth}{1}
+{
+\setlength{\parindent}{15pt}
+\setlength{\parskip}{0pt}
 \tableofcontents
+}
 % \listoffigures
 % \listoftables
 
 % ================================================================ chapters
 \input{chapters/ch1_introduction}
-\input{chapters/ch2_theory}       % Ch.2  static arbitrage + SVI/SSVI (part A)
-\input{chapters/ch2_theory_b}     % Ch.2  static arbitrage + SVI/SSVI (part B)
-\input{chapters/ch3_learning}     % Ch.3  constrained learning: soft constraints, NN, operators
-\input{chapters/ch3_data}
-\input{chapters/ch4_methods}
-\input{chapters/ch5_downstream}
-\input{chapters/ch6_conclusion}
+\input{chapters/ch2_theory}       % Ch.2  static arbitrage + SVI/SSVI 
+\input{chapters/ch3_neural}
+\input{chapters/ch4_data}
+\input{chapters/ch5_results}
+\input{chapters/ch6_downstream}
+\input{chapters/ch7_conclusion}
 
 % ================================================================ bibliography
 \input{chapters/bibliography}

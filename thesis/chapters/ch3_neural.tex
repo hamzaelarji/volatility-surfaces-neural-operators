@@ -2,35 +2,34 @@
 \chapter{Constrained Learning of Volatility Surfaces}\label{ch:learning}
 % ============================================================================
 
-The previous chapter ended with a family for which the no-arbitrage conditions are
-\emph{theorems}: choose SSVI parameters inside the Gatheral--Jacquier region and the surface is
-provably clean, on the whole domain, forever. The price of that guarantee is a five-parameter
-functional form, and Section~\ref{sec:parametric} will show what it costs in fit.
+The previous chapter considered SSVI, for which the no-arbitrage conditions can be guaranteed
+analytically on the working domain. This guarantee comes with the restriction of a
+five-parameter functional form, and Section~\ref{sec:parametric} will show what it costs in fit.
 
-This chapter turns to model classes that pay no such price and enjoy no such guarantee. A neural
-network can represent essentially any smooth surface, so the rigidity disappears; but no theorem
-attaches to it, and the arbitrage conditions must instead be imposed \emph{during training}, by
-penalising violations wherever the training procedure happens to look. That last clause is
-innocuous-sounding and is the subject of the entire chapter.
+This chapter turns to more flexible model classes for which no comparable analytical guarantee is
+available. A neural network can represent essentially any smooth surface, so the rigidity
+disappears; but no theorem attaches to it, and the arbitrage conditions must instead be imposed
+by penalising violations at a finite set of points during training. The choice of these points
+is central to this chapter.
 
-Section~\ref{sec:softtheory} develops the theory of that approximation and is the theoretical
-backbone of the thesis: what minimising a penalty to zero actually proves, how far the statement
-extends beyond the points where it was checked, why the butterfly and calendar constraints
-demand incompatible sampling grids, and when a measured violation is large enough to matter
-economically. Sections~\ref{sec:nnsec} and~\ref{sec:opsec} then supply the
-approximation-theoretic background for the two learned families studied empirically, the per-day
-neural smoother and the neural operator, the second of which changes the object being learned
-from a surface to the map that produces surfaces. Section~\ref{sec:problem} closes by stating
-the reconstruction problem the rest of the thesis solves and scores, including the one criterion
-by which our framing departs from the literature.
+Section~\ref{sec:softtheory} develops the main theoretical results used later in the thesis:
+what minimising a penalty to zero actually proves, how far that statement extends beyond the
+points where it was checked, why the butterfly and calendar constraints demand incompatible
+sampling grids, and when a measured violation is large enough to matter economically.
+Sections~\ref{sec:nnsec} and~\ref{sec:opsec} then supply the approximation-theoretic background
+for the two learned families studied empirically: the per-day neural smoother, and the neural
+operator, which changes the object being learned from a surface to the map that produces
+surfaces. Section~\ref{sec:problem} closes by stating the reconstruction problem the rest of the
+thesis solves and scores, including the one criterion by which our framing departs from the
+literature.
 
 % ============================================================================
 \section{Soft constraints, sampling sets, and materiality}\label{sec:softtheory}
 % ============================================================================
 
-Parametric certificates are theorems; neural smoothers have none. They cannot impose
-$g\ge0$ and $\partial_\tau w\ge0$ pointwise, and instead penalise violations on a finite
-\emph{collocation set} $\hat X$ \cite{ackerer2020,hoshisashi2023}:
+Parametric models can sometimes provide analytical certificates, while neural smoothers generally
+cannot. They cannot impose $g\ge0$ and $\partial_\tau w\ge0$ pointwise, and instead penalise
+violations on a finite \emph{collocation set} $\hat X$ \cite{ackerer2020,hoshisashi2023}:
 \begin{equation}\label{eq:loss}
 \mathcal L=\underbrace{\tfrac1p\textstyle\sum_i\omega_i\bigl(w_\theta(k_i,\tau_i)-w_i\bigr)^2}_{\text{fit}}
 +\lambda_{\mathrm b}\,\overline{\relu(-g_\theta)^2}\Big|_{\hat X_{\mathrm b}}
@@ -38,27 +37,23 @@ $g\ge0$ and $\partial_\tau w\ge0$ pointwise, and instead penalise violations on 
 +\lambda_{\mathrm w}\,\overline{(\partial_{kk}w_\theta)^2}\Big|_{\hat X_{\mathrm{wing}}},
 \end{equation}
 where overlines denote averages over the indicated collocation grids and $\omega_i$ are fit
-weights. This section builds the small amount of theory the thesis needs about
-\eqref{eq:loss}: what minimising a penalty to zero \emph{proves}, how far that statement
-extends between nodes, why the two arbitrage constraints have incompatible grid requirements,
-and when a measured violation is economically meaningful.
+weights. Everything that follows in this section concerns one question about \eqref{eq:loss}:
+when the penalty terms reach zero, what exactly has been proved?
 
 \begin{remark}[A penalty is a statement about $\hat X$]\label{rem:sampling}
 Minimising \eqref{eq:loss} to $\lambda$-term zero proves $g_\theta\ge0$ \emph{on}
-$\hat X_{\mathrm b}$ and $\partial_\tau w_\theta\ge0$ \emph{on} $\hat X_{\mathrm c}$. Whether that extends between the nodes depends on the interaction between the
-network's inductive bias and the geometry of the constraint.
-Sections~\ref{sec:deep}--\ref{sec:operator} show empirically that it can fail, exactly, and at
-scale. The methodological consequence adopted throughout is an \emph{independent audit grid}:
-finer than, and disjoint from, every collocation grid, with all penalties reported twice (at
-the nodes and on the audit) and a \emph{blind-spot flag} raised when the two disagree
-materially.
+$\hat X_{\mathrm b}$ and $\partial_\tau w_\theta\ge0$ \emph{on} $\hat X_{\mathrm c}$. Whether
+that extends between the nodes depends on the interaction between the network's inductive bias
+and the geometry of the constraint. Sections~\ref{sec:deep}--\ref{sec:operator} show empirically
+that it can fail, exactly, and at scale.
 \end{remark}
 
 \subsection{The node-gap bound}
 
-The following elementary proposition formalises the mechanism: between nodes, the only control
-a node-wise constraint gives is through a regularity bound on the model class, and the
-violation budget scales \emph{linearly} with the node gap.
+Remark~\ref{rem:sampling} identifies the region between nodes as the potential source of
+violations, but does not quantify their size. The following elementary result answers that:
+between nodes, the only control a node-wise constraint gives is through a regularity bound on the
+model class, and the violation budget scales \emph{linearly} with the node gap.
 
 \begin{theorem}[Node-gap violation bound]\label{prop:nodegap}
 Fix $k$ and let $f(\tau):=\partial_\tau w_\theta(k,\tau)$ on an interval containing adjacent
@@ -85,35 +80,51 @@ which vanishes at both nodes, has $|f'|=L$, and attains $-Lh/2$ at the midpoint.
 \begin{remark}[Reading the bound]\label{rem:nodegapread}
 Two consequences drive Section~\ref{sec:deep}. First, \emph{without} an a-priori bound $L$ on
 $\partial_{\tau\tau}w_\theta$, node constraints control nothing between nodes, and a trained
-network under fit pressure has no useful such bound: the fit term of \eqref{eq:loss} is then
-free to buy accuracy with a dip of any depth, at zero penalty cost. Second, \emph{with}
-whatever $L$ the trained network does exhibit, the violation budget is proportional to the node
-gap $h$. Shrinking the calendar grid's maximal gap from $0.41$y, the exponential grid's
-long-end hole, to $0.017$y, the repaired uniform grid, shrinks the worst admissible hidden
+network under fit pressure has no useful such bound: the fit term of \eqref{eq:loss} can then
+improve accuracy by creating a violation between nodes without increasing the penalty. Second,
+\emph{with} whatever $L$ the trained network does exhibit, the violation budget is proportional
+to the node gap $h$. Shrinking the calendar grid's maximal gap from $0.41$y, the exponential
+grid's long-end hole, to $0.017$y, the repaired uniform grid, shrinks the worst admissible hidden
 violation by a factor of about $24$ at equal curvature. This is exactly the repair adopted in
 Section~\ref{sec:deep}, and the reason the repaired node and audit penalties agree to grid
 noise. Figure~\ref{fig:nodegap} illustrates the extremal $f$, and Figure~\ref{fig:gridhole}
 shows the two grids on the thesis's actual maturity axis.
 \end{remark}
+\begingroup
+\setlength{\floatsep}{6pt}
+\setlength{\textfloatsep}{8pt}
 
-\thfig{figures/fig_nodegap.pdf}{0.78}{The node-gap bound
-(Theorem~\ref{prop:nodegap}): a surface can satisfy the calendar penalty exactly at two
-adjacent collocation nodes (dots, $\partial_\tau w=0$) while $\partial_\tau w$ dips to
-$-Lh/2$ between them (red area). The worst-case violation is linear in the gap $h$ and in the
-curvature budget $L$.}{fig:nodegap}
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fig_nodegap.png}
+\caption{The node-gap bound (Theorem~\ref{prop:nodegap}). The calendar penalty is satisfied
+exactly at every collocation node (dots, $\partial_\tau w=0$), yet $\partial_\tau w$ dips to
+$-Lh/2$ between them (shaded), the branches falling at the maximal admissible slope $L$. Halving
+the gap halves the violation: the right-hand pair, spaced $h/2$, can hide only $-Lh/4$. That
+proportionality is what the repair of Section~\ref{sec:deep} exploits.}
+\label{fig:nodegap}
+\end{figure}
 
-\thfig{figures/fig_grid_hole.pdf}{1.0}{Constraint-specific collocation on the thesis's
-maturity axis $[0.06,1.4]$. The literature's exponential grid (top, ten nodes,
-$0.060,0.085,\dots,0.987,1.400$) is optimal for the butterfly constraint but leaves a
-$0.413$-year hole, $30\%$ of the axis (shaded), exactly where the calendar stressor of
-Section~\ref{sec:deep} forces a crossing. The calendar constraint therefore gets its own
-uniform grid (bottom, 80 nodes, maximal gap $0.017$y).}{fig:gridhole}
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_grid_hole.png}
+\caption{Constraint-specific collocation on the maturity axis $[0.06,1.4]$. The literature's
+exponential grid (top, ten nodes) crowds the short end, where the butterfly constraint bites,
+but leaves a $0.413$-year gap at the long end, $31\%$ of the axis with no calendar node
+(shaded). The calendar stressor of Section~\ref{sec:deep} forces its crossing inside that gap
+(dashed), so the penalty reads zero on a surface that is violating. Giving the calendar
+constraint its own uniform grid (bottom, 80 nodes) brings the maximal gap down to $0.017$
+years.}
+\label{fig:gridhole}
+\end{figure}
+\endgroup
 
 \subsection{Why one grid cannot serve both constraints}
 
-The two constraints of Definition~\ref{def:durrleman} and Definition~\ref{def:calendar} have
-\emph{opposite} grid requirements:
-
+The bound explains how violations can occur between nodes. The next question is why such large
+gaps arise in practice. The answer is that the two constraints of
+Definition~\ref{def:durrleman} and Definition~\ref{def:calendar} require different sampling
+patterns along the maturity axis:
 
 \begin{center}
 \small
@@ -132,44 +143,36 @@ Calendar $\partial_\tau w\ge0$
 \end{tabularx}
 \end{center}
 
-The butterfly constraint is most restrictive when total variance is small because the slope term in \eqref{eq:g}, amplified by $1/w$, dominates in that region. This also explains why NB02 violations concentrate between $7$ and $14$ days. An exponential maturity grid therefore places more nodes near the short end.
-
-The calendar constraint is different. It is a first-derivative condition that may fail anywhere along the maturity axis. Theorem~\ref{prop:nodegap} shows that its enforcement quality depends on the largest node gap. An exponential grid creates this largest gap at the long end. Using the same grid for both constraints therefore weakens the calendar penalty at long maturities. This is the caveat identified by Chataigner et al.~\cite{chataigner2020} and the mechanism behind the collocation blind spot discussed in Section~\ref{sec:deep}.
-
+The asymmetry in the table is the same one flagged in Remark~\ref{rem:calpenalty}: butterfly is
+a second-derivative condition concentrated at one end of the axis, calendar a first-derivative
+condition that can fail anywhere on it. What matters for the calendar penalty is therefore the
+\emph{largest} node gap, not the average spacing, and an exponential grid puts its largest gap at
+the long end. Using the same exponential grid for both constraints therefore leaves the calendar
+condition least controlled at the long end. This is Chataigner et al.'s caveat
+\cite{chataigner2020} given a concrete mechanism, and it is the collocation blind spot exhibited
+in Section~\ref{sec:deep}.
 
 \subsection{Regularity of the model class: activations}
-The butterfly penalty needs $w''_\theta$, so the corrector's activation function must itself be
-twice differentiable, and with a curvature the training can actually shape. Recall the two
-canonical choices:
+
+The sampling grid is not the only source of failure. The choice of model class also matters.
+
+The butterfly penalty needs $w''_\theta$, so the corrector's activation must be twice
+differentiable, and with a curvature the training can actually shape. Recall the two canonical
+choices:
 \begin{equation}\label{eq:activations}
 \relu(x)=\max(x,0),
 \qquad
 \tanh(x)=\frac{e^{x}-e^{-x}}{e^{x}+e^{-x}} .
 \end{equation}
-Their second derivatives could not be more different. The rectifier is piecewise affine, so
-$\relu''(x)=0$ for every $x\neq0$ and is undefined at the single kink; a network built from it
-is continuous piecewise-affine \cite{hornik1991,baydin2018}, and therefore has $\partial_{kk}\mathrm{MLP}_\theta=0$ Lebesgue-almost
-everywhere. The hyperbolic tangent is $C^\infty$ with $\tanh''(x)=-2\tanh(x)\bigl(1-\tanh^2(x)\bigr)$,
-a smooth non-degenerate curvature at every point.
+Their second derivatives behave very differently. ReLU is piecewise affine, so
+$\relu''(x)=0$ almost everywhere, and therefore
+$\partial_{kk}\mathrm{MLP}_\theta=0$ almost everywhere
+\cite{hornik1991,baydin2018}. In contrast, $\tanh$ is smooth, with
+$\tanh''(x)=-2\tanh(x)\bigl(1-\tanh^2(x)\bigr)$, so it provides non-zero curvature.
 
-The consequence for \eqref{eq:g} is immediate. With a $\relu$ corrector, the $w''$ channel of
-$g_\theta$ carries no information at almost every collocation node: there the corrector
-contributes zero curvature, $w''_\theta$ reduces to the second derivative of the smooth SSVI
-prior alone, and the butterfly penalty cannot reshape it. The penalty's gradient reaches the
-corrector only through the level and slope terms of $g$, never through curvature, which is
-precisely the quantity the constraint exists to control.
+The implication for \eqref{eq:g} is straightforward. With a $\relu$ corrector, $w''_\theta$ is, at almost every collocation node, just the second derivative of the SSVI prior. The penalty can still affect the corrector through the level and slope terms in $g$, but not through curvature, which is the part it is meant to control.
 
-The requirement is therefore $C^2$ regularity with non-degenerate curvature, not $\tanh$
-specifically, and it is worth being explicit that modern practice supplies several admissible
-alternatives. GELU and SELU, which have largely displaced $\tanh$ as defaults in contemporary
-architectures, are both smooth and both satisfy the requirement; the neural operators of
-Section~\ref{sec:opsec} use GELU internally for that reason. We retain $\tanh$ for the per-day
-corrector of \eqref{eq:arch} on a narrower ground: its bounded range keeps the multiplicative
-correction numerically controlled near initialisation, where training starts at the prior and we
-want the corrector to depart from it gradually. The content of this subsection is the exclusion
-rather than the choice. Piecewise-affine activations make the butterfly penalty structurally
-blind to the very derivative it constrains, and no amount of tuning elsewhere in the training
-recovers that.
+This does not mean that $\tanh$ is required. Any $C^2$ activation with non-zero curvature can be used, including GELU and SELU. The neural operators in Section~\ref{sec:opsec} use GELU for this reason. We keep $\tanh$ in \eqref{eq:arch} because its bounded range helps keep the multiplicative correction stable near initialisation. The main restriction is therefore to avoid piecewise-affine activations, since they make the butterfly penalty ineffective through the curvature term.
 
 % \begin{remark}[Exactness of the nested derivatives]\label{rem:c2}
 % The derivatives entering the penalties are computed by automatic differentiation and validated
@@ -180,18 +183,16 @@ recovers that.
 % finite differences}
 % \end{remark}
 
-\thfig{figures/fig_relu_tanh.pdf}{1.0}{Curvature as seen by the butterfly penalty,
-toy illustration: a piecewise-affine (ReLU-type) fit of a convex smile
-has $w''=0$ almost everywhere with distributional spikes at the knots (red), so the penalty's
-curvature channel is inert; a $\tanh$-type fit exposes a smooth, informative
-$w''$ (blue).}{fig:relutanh}
+\thfig{figures/fig_relu_tanh.png}{1.0}{Curvature seen by the butterfly penalty. Left: ReLU and $\tanh$ networks both fit the same convex slice closely. Right: ReLU has $w''=0$ almost everywhere, while the smooth fit has non-zero curvature throughout. The penalty therefore sees no ReLU curvature at ordinary collocation nodes.}{fig:relutanh}
 
 \subsection{Materiality}
-An audit that flags every sign change of $\partial_\tau w$ or $g$, however small, is useless: a
+
+The next question is how large a detected violation must be to be economically meaningful. An
+audit that flags every sign change of $\partial_\tau w$ or $g$, however small, is useless: a
 soft-constraint method leaves tiny numerical residuals everywhere, and calling them
-``violations'' would drown the real ones. We therefore need a threshold below which a violation
-is indistinguishable from quote noise and above which it is economically meaningful. That
-threshold is the materiality tolerance.
+``violations'' would make it difficult to distinguish numerical residuals from economically
+relevant violations. We need a threshold below which a violation is indistinguishable from quote
+noise and above which it is economically meaningful.
 
 \begin{definition}[Materiality threshold]\label{def:materiality}
 A violation is \emph{material} if it exceeds $\mathrm{tol}_{\mathrm{mat}}=10^{-3}$ in surface
@@ -209,21 +210,22 @@ beyond this band. Below that, a ``violation'' is a numerical residual of the sof
 approach, not a monetisable opportunity; Hoshisashi et al.\ make the same observation for their
 DCNN \cite{hoshisashi2023}.
 
-Two consequences hold throughout the thesis. Every violation rate is reported twice, \emph{strict}
-($<-10^{-8}$, any sign change at all) and \emph{material} ($<-\mathrm{tol}_{\mathrm{mat}}$,
-economically real), so the reader can always separate the two. And blind-spot detection compares
-the node grid and the audit grid \emph{on the same material scale}: an earlier,
-magnitude-inconsistent detector false-alarmed on residuals four orders of magnitude below
-materiality (Section~\ref{sec:deep}), which the material-scale comparison eliminates.
+Two consequences hold throughout the thesis. Every violation rate is reported twice,
+\emph{strict} ($<-10^{-8}$, any sign change at all) and \emph{material}
+($<-\mathrm{tol}_{\mathrm{mat}}$, economically real), so the reader can always separate the two.
+And blind-spot detection compares the node grid and the audit grid \emph{on the same material
+scale}: an earlier, magnitude-inconsistent detector false-alarmed on residuals four orders of
+magnitude below materiality (Section~\ref{sec:deep}), which the material-scale comparison
+eliminates.
 
 \subsection{The audit-grid methodology}
+
 Remark~\ref{rem:sampling} and Theorem~\ref{prop:nodegap} together say that a soft penalty
 certifies its constraint only on the finite set where it is sampled, and that the violation it
 can hide between samples grows with the gap. A penalty reporting zero is therefore not evidence
-of an arbitrage-free surface; it is evidence only about the sampling set. Everything downstream
-in this thesis rests on refusing to take a penalty's own report at face value, and instead
-auditing each model against a standard it was not trained on. Concretely, four rules are applied
-throughout.
+of an arbitrage-free surface; it is evidence about the sampling set. For this reason, each model
+is also evaluated on an independent audit grid that is not used during training. Four rules
+implement this.
 
 \begin{enumerate}[label=(A\arabic*)]
 \item \textbf{Two grids, never one.} Every penalty is evaluated twice: once on its own
@@ -256,28 +258,23 @@ as a genuine property (Sections~\ref{sec:deep} and~\ref{sec:operator}).
 \section{Neural networks as surface models}\label{sec:nnsec}
 % ============================================================================
 
-The parametric models of Sections~\ref{sec:svisec}--\ref{sec:ssvisec} impose a functional form
-and let the data choose five parameters. Their strength is that the form carries theorems; their
-weakness is that the form is also a ceiling, since no choice of $(a,b,\rho,m,\sigma)$ can produce
-a shape SVI cannot express. This section introduces the opposite trade: a model class flexible
-enough to represent essentially any smooth surface, whose price is that it carries no theorem at
-all and must be constrained by the penalties of Section~\ref{sec:softtheory}.
+With the theory of soft constraints in place, we turn to the model classes they are meant to
+constrain, starting with the simpler of the two.
 
 \subsection{From parametric forms to learned functions}
 
-A neural network is best understood as a \emph{parameterised family of functions} rich enough to
-approximate anything, rather than as a black box. The basic building block, the
-\emph{multilayer perceptron} (MLP), alternates affine maps and a fixed nonlinearity. With
-activation $\phi_a:\R\to\R$, depth $D$ and widths $n_0,\dots,n_D$, it is the map
-$x\mapsto z_D(x)$ defined recursively by
+Here, we view a neural network simply as a parameterised family of functions used to approximate
+the volatility surface. The basic building block, the \emph{multilayer perceptron} (MLP),
+alternates affine maps and a fixed nonlinearity. With activation $\phi_a:\R\to\R$, depth $D$ and
+widths $n_0,\dots,n_D$, it is the map $x\mapsto z_D(x)$ defined recursively by
 \begin{equation}\label{eq:mlp}
 z_0=x,\qquad
 z_\ell=\phi_a\bigl(W_\ell z_{\ell-1}+b_\ell\bigr)\quad(\ell<D),\qquad
 z_D=W_Dz_{D-1}+b_D,
 \end{equation}
 with parameters $\theta=(W_\ell,b_\ell)_{\ell\le D}$ and $\phi_a$ applied componentwise. In our
-setting the input is a point of the surface, $x=(k,\tau)$, and the output is a scalar. Figure
-\ref{fig:mlp} shows the object.
+setting the input is a point of the surface, $x=(k,\tau)$, and the output is a scalar.
+Figure~\ref{fig:mlp} shows the object.
 
 \begin{figure}[htbp]\centering
 \begin{tikzpicture}[
@@ -309,33 +306,32 @@ are fitted to one day's quotes.}\label{fig:mlp}
 \end{figure}
 
 The classical justification for this class is that it is dense in the space of continuous
-functions, and, crucially for us, dense in derivatives too.
+functions and, for our purposes, dense in derivatives as well.
 
 \begin{proposition}[{Universal approximation; Hornik \cite{hornik1991}}]\label{thm:hornik}
 If $\phi_a$ is continuous, bounded and non-constant, then for every compact $K\subset\R^d$ the
-set of one-hidden-layer MLPs is dense in $C(K)$ for the uniform norm. Moreover, if
+set of one-hidden-layer MLPs is dense in $C(K)$ for the uniform norm. If, in addition,
 $\phi_a\in C^m$, density holds in the $C^m$ norm on compacts: the network approximates the
 target \emph{and} its derivatives up to order $m$ simultaneously.
 \end{proposition}
 
-The $C^m$ statement is the relevant one here, and not a technicality. The quantities penalised
-in \eqref{eq:loss} are $w''_\theta$ and $\partial_\tau w_\theta$, so approximation power must
-reach the derivatives, not only the level; and by the curvature argument of
-Section~\ref{sec:softtheory} the activation must be at least $C^2$ for the butterfly channel to
-be trainable at all.
+The $C^m$ statement is the relevant one here, and not a technicality. The quantities penalised in
+\eqref{eq:loss} are $w''_\theta$ and $\partial_\tau w_\theta$, so approximation power must reach
+the derivatives, not only the level; and by the curvature argument above, the activation must be
+at least $C^2$ for the butterfly channel to be trainable at all.
 
 \subsection{Exact derivatives by automatic differentiation}
 
-A constrained smoother is only as good as its derivatives, and this subsection explains why a
-learned smoother can have exact ones at all. The idea is not native to finance: it is the
-mechanism underlying physics-informed neural networks \cite{raissi2019,lagaris1998}, where a
-differential equation is imposed by penalising its residual at sampled points, which is only
-meaningful because the residual can be evaluated exactly. Automatic differentiation (AD)
-computes derivatives \emph{exactly}, to floating-point precision, rather than by finite
-differences:
-the program defining $w_\theta$ is a composition of elementary operations whose local
-derivatives are known in closed form, and the chain rule is applied mechanically along the
-computational graph \cite{baydin2018}.
+The approximation result concerns the existence of these derivatives. In practice, they must
+also be computed efficiently during training.
+
+Automatic differentiation (AD) computes derivatives \emph{exactly}, to floating-point precision,
+rather than by finite differences: the program defining $w_\theta$ is a composition of elementary
+operations whose local derivatives are known in closed form, and the chain rule is applied
+mechanically along the computational graph \cite{baydin2018}. The idea is not native to finance.
+It is the mechanism underlying physics-informed neural networks \cite{raissi2019,lagaris1998},
+where a differential equation is imposed by penalising its residual at sampled points, which is
+only meaningful because the residual can be evaluated exactly.
 
 Two consequences matter. First, the surface derivatives entering \eqref{eq:loss}, namely
 $w'_\theta$ and $w''_\theta$ in $k$ and $\partial_\tau w_\theta$ in $\tau$, are exact functionals
@@ -348,7 +344,7 @@ would be caught. The neural operators of Section~\ref{sec:opsec}, following the 
 between what that grid sees and what an independent audit sees is itself one of this thesis's
 measurements.
 
-\subsection{The multiplicative prior--corrector architecture}
+\subsection{The multiplicative prior-corrector architecture}
 
 Used alone, an MLP would discard everything the parametric theory provides. The architecture of
 \cite{ackerer2020}, adopted in Section~\ref{sec:deep}, instead keeps the certified surface and
@@ -378,16 +374,13 @@ prior carries a theorem.
 
 The models above learn a \emph{function}: given the numbers $(k,\tau)$, return a number. Their
 parameters are fitted to one day's quotes, and a new day requires a new optimisation from
-scratch. Neural operators change the object being learned. Instead of one surface, they learn
-the \emph{map that produces surfaces}.
+scratch. Neural operators change the object being learned. Instead of one surface, they learn the
+\emph{map that produces surfaces}.
 
-It is worth being precise about the word \emph{map}, since the whole distinction rests on it. A
-map is simply a rule assigning to each element of one set exactly one element of another. What
-varies is what those sets contain. A \emph{function}, in the ordinary sense, maps numbers to
-numbers, for instance $(k,\tau)\mapsto w$. An \emph{operator} maps \emph{functions to functions}:
-its input is not a number but an entire object, and so is its output. Differentiation is the
-canonical example, sending a function $f$ to the function $f'$; so is integration. In our
-problem, the operator of interest is
+The distinction is one of level. A function maps numbers to numbers, for instance
+$(k,\tau)\mapsto w$. An operator maps \emph{functions to functions}: its input is not a number
+but an entire object, and so is its output; differentiation is the canonical example, sending $f$
+to $f'$. In our problem, the operator of interest is
 \begin{equation}\label{eq:opmap}
 \mathcal G:\;\underbrace{a}_{\text{a day's quote cloud}}\;\longmapsto\;
 \underbrace{w(\cdot,\cdot)}_{\text{the whole smoothed surface}},
@@ -395,8 +388,8 @@ problem, the operator of interest is
 a=\bigl\{(k_i,\tau_i,\sigma_{\mathrm{IV},i})\bigr\}_{i\le p},
 \end{equation}
 which takes an entire configuration of quotes and returns an entire surface, evaluable at any
-$(k,\tau)$ we care to query. Formally $a$ is a discrete measure, that is, a discretisation of an
-element of a function space, and $\mathcal G$ acts between function spaces. Figure~\ref{fig:funcvsop}
+$(k,\tau)$ we care to query. Formally $a$ is a discrete measure, a discretisation of an element
+of a function space, and $\mathcal G$ acts between function spaces. Figure~\ref{fig:funcvsop}
 contrasts the two levels.
 
 \begin{figure}[htbp]\centering
@@ -426,17 +419,16 @@ parameters encode one surface, and a new day requires refitting. Bottom: an oper
 \emph{procedure}, so a new day is a single forward pass.}\label{fig:funcvsop}
 \end{figure}
 
-The practical payoff is amortisation. Training is paid once, across the entire history, after
-which a new day costs one forward pass, milliseconds rather than the minute or so needed to
-refit a per-day smoother. Two structural properties distinguish a genuine operator from a plain
-network fed with a flattened input. It must accept inputs of \emph{any size and layout}, since
-the number of quotes and their locations change every day, which requires invariance under
-permutation of the index $i$ and tolerance of variable $p$. And it aspires to
-\emph{discretization invariance}: refining the sampling of the input should not change the
-answer.
+The main practical advantage is that the operator is trained once on the historical sample and
+can then be applied to new days with a single forward pass. Two structural properties distinguish
+a genuine operator from a plain network fed with a flattened input. It must accept inputs of
+\emph{any size and layout}, since the number of quotes and their locations change every day,
+which requires invariance under permutation of the index $i$ and tolerance of variable $p$. And
+it aspires to \emph{discretisation invariance}: refining the sampling of the input should not
+change the answer.
 
-\begin{definition}[Discretization invariance, after \cite{kovachki2023}]\label{def:discinv}
-A parametric map $\mathcal G_\vartheta$ on point-cloud inputs is discretization-invariant at $u$
+\begin{definition}[Discretisation invariance, after \cite{kovachki2023}]\label{def:discinv}
+A parametric map $\mathcal G_\vartheta$ on point-cloud inputs is discretisation-invariant at $u$
 if, for any sequence of discretisations $a^{(n)}$ of $u$ refining to $u$, the outputs
 $\mathcal G_\vartheta(a^{(n)})$ converge to a common limit $\mathcal G_\vartheta(u)$, uniformly
 on compacts. Empirically one tests a finite version: the output surface must be stable under
@@ -444,11 +436,13 @@ subsampling of the input quotes. Section~\ref{sec:operator} gates this test on f
 because a collapsed operator that outputs a constant is trivially invariant.
 \end{definition}
 
+We consider two architectures for learning the output surface: DeepONet and graph neural
+operators.
+
 \subsection{DeepONet: a learned global basis}
 
-The first architecture answers the question ``how can a network output an entire function?'' by
-writing that function in a \emph{basis}. DeepONet \cite{lu2021} represents the operator in
-separated form,
+The first answer writes the output function in a \emph{basis}. DeepONet \cite{lu2021} represents
+the operator in separated form,
 \begin{equation}\label{eq:deeponet}
 \mathcal G_\vartheta(a)(k,\tau)\;=\;\sum_{j=1}^{p^\ast}
 \underbrace{b_j\bigl(E(a)\bigr)}_{\text{coefficients: depend on the quotes}}\;
@@ -513,9 +507,9 @@ its residual weakness being a thin calendar blind spot, at the price of visibly 
 
 \subsection{Graph neural operators: a learned local kernel}
 
-The second architecture answers the same question differently, by building the output
-\emph{locally} from nearby data rather than from a global basis. The neural-operator programme \cite{li2020gno,li2021fno,kovachki2023} models $\mathcal G$ as a
-composition of \emph{kernel integral layers},
+The second answer builds the output \emph{locally} from nearby data rather than from a global
+basis. The neural-operator programme \cite{li2020gno,li2021fno,kovachki2023} models $\mathcal G$
+as a composition of \emph{kernel integral layers},
 \begin{equation}\label{eq:kernelint}
 v_{\ell+1}(x)\;=\;\phi_a\Bigl(W_\ell\,v_\ell(x)\;+\;\int\kappa_\ell(x,y)\,v_\ell(y)\,
 \nu(\dd y)\Bigr),
@@ -564,30 +558,23 @@ and, as Remark~\ref{rem:gnobias} explains, costs global control of curvature.}\l
 \end{figure}
 
 \begin{remark}[Inductive bias and the audit]\label{rem:gnobias}
-The locality of \eqref{eq:gno} is simultaneously the GNO's strength and its liability. The
-strength is adaptivity: the output at $x$ is assembled from the nearest quotes, so the operator
-follows local smile features closely and leads the accuracy table of Section~\ref{sec:operator}.
-The liability is that nothing global constrains the assembled surface's second derivative.
-Neighbourhoods change discretely as $x$ moves and each carries its own kernel response, so the
-output exhibits fine-scale curvature at the scale of the quote spacing. A butterfly penalty
-resolved by finite differences on a coarse grid, here the $22\times9$ grid of the reference
-design with maximal $\tau$-gap $0.176$y, is blind to curvature at finer scales in exactly the
-sense of Theorem~\ref{prop:nodegap}; an independent $61\times31$ audit is not. The empirical
-counterpart, that the accuracy leader is also the most arbitrage-dirty model in the study, is
+The local structure of the GNO improves flexibility, but it also makes global curvature harder to
+control. The output at $x$ is assembled from the nearest quotes, so the operator follows local
+smile features closely and leads the accuracy table of Section~\ref{sec:operator}. At the same
+time, nothing global constrains the assembled surface's second derivative. Neighbourhoods change
+discretely as $x$ moves and each carries its own kernel response, so the output exhibits
+fine-scale curvature at the scale of the quote spacing. A butterfly penalty resolved by finite
+differences on a coarse grid, here the $22\times9$ grid of the reference design with maximal
+$\tau$-gap $0.176$y, is blind to curvature at finer scales in exactly the sense of
+Theorem~\ref{prop:nodegap}; an independent $61\times31$ audit is not. The empirical counterpart,
+that the accuracy leader is also the most arbitrage-dirty model in the study, is
 Section~\ref{sec:operator}'s central exhibit.
 \end{remark}
 
 \subsection{Why this matters here}
 
-The two architectures embody opposite answers to the same question, and the contrast organises
-the empirical chapters. DeepONet fixes a smooth global basis and lets the data choose
-coefficients, so regularity is guaranteed by construction and fine detail is unreachable. The
-graph operator assembles each query from its own neighbourhood, so fine detail is reachable and
-regularity is guaranteed nowhere. Table~\ref{tab:opcompare} summarises the comparison, including
-the per-day smoother of Section~\ref{sec:nnsec} for reference.
-
 \begin{table}[htbp]\centering\small
-\caption{The three model classes compared. The last column is what
+\caption{The three model classes compared. The last row is what
 Chapters~\ref{ch:methods}--\ref{ch:downstream} measure.}\label{tab:opcompare}
 \begin{tabular}{lccc}
 \toprule
@@ -603,6 +590,10 @@ expected failure mode & between nodes & coarse fits & fine-scale curvature \\
 \end{tabular}
 \end{table}
 
+Table~\ref{tab:opcompare} sets the two operator families side by side with the per-day smoother.
+Read across the last row, it also states what each is expected to get wrong, and the empirical
+chapters test exactly those predictions.
+
 Both operator families are trained with soft penalties, and both therefore inherit the question
 of Section~\ref{sec:softtheory}: on which set is the constraint actually enforced? For a per-day
 smoother the answer concerned the space between collocation nodes. For an operator a second gap
@@ -612,8 +603,9 @@ property to a day the model has never seen. Section~\ref{sec:operator} measures 
 % ============================================================================
 \section{The reconstruction problem}\label{sec:problem}
 % ============================================================================
-The pieces are now in place to state precisely the problem the rest of the thesis solves and
-scores, and to make explicit the one criterion by which its framing departs from the literature.
+
+We can now state the reconstruction problem used in the rest of the thesis, and make explicit the
+one criterion by which its framing departs from the literature.
 
 Given a single day's quotes $\{(k_i,\tau_i,\sigma_{\mathrm{IV},i})\}_{i=1}^{p}$, sparse,
 irregular and noisy, the task is to construct a surface
@@ -631,21 +623,16 @@ enforced, and the economic size of any residual violation off that set.
 
 Criteria (i)--(iii) are the standard trio, and every method in
 Chapters~\ref{ch:methods}--\ref{ch:downstream} is scored on them identically. Criterion (iv) is
-the one the thesis argues cannot be omitted. The reason is the whole content of
-Section~\ref{sec:softtheory}: for every model class except the certified parametric ones, (ii)
-is imposed only on a finite sampling set, and a method can satisfy (i)--(iii) beautifully while
-failing (ii) between its samples, or, for an operator, on days it never saw. A surface that
-scores well on the classical trio is therefore not yet trustworthy; what makes it trustworthy is
-knowing \emph{where} its no-arbitrage guarantee holds and \emph{what it costs} where it does not.
-A model that fits, excludes arbitrage on a stated set, generalises, and prices its residual
-failure is doing something a model that merely fits, generalises, and reports a zero penalty is
-not.
+the one this thesis argues cannot be omitted: a method can satisfy (i)--(iii) while failing (ii)
+between its samples, or, for an operator, on days it never saw. Good performance on these three
+criteria does not by itself guarantee that the surface is arbitrage-free away from the sampled
+points. We therefore also report where the no-arbitrage condition is enforced and the size of
+violations outside that set.
 
 Each criterion is scored by a specific instrument, all shared across families. The unified
-protocol of Chapter~\ref{ch:data} scores (i)--(iii). The audit-grid methodology (A1)--(A4) of
-Section~\ref{sec:softtheory}, together with the materiality calculus of
-Definition~\ref{def:materiality}, scores the guarantee half of (iv). And
-Chapter~\ref{ch:downstream} scores its cost half, turning a violation into a repair rate, a
-negative density mass, or a degraded signal through the identity
+protocol of Chapter~\ref{ch:data} scores (i)--(iii). The audit-grid methodology (A1)--(A4),
+together with the materiality calculus of Definition~\ref{def:materiality}, scores the guarantee
+half of (iv). And Chapter~\ref{ch:downstream} scores its cost half, turning a violation into a
+repair rate, a negative density mass, or a degraded signal through the identity
 $\sigma_{\mathrm{loc}}^2=\partial_\tau w/g$ of Proposition~\ref{prop:dupire}. With the problem
 and its scoring fixed, the benchmark can begin.

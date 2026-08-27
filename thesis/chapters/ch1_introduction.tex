@@ -4,214 +4,105 @@
 
 \section{The reconstruction problem}
 
-Every quantitative desk begins its day with the same reconstruction problem. The market does not
-publish an implied volatility \emph{surface}; it publishes a few thousand option quotes sparse in
-some regions, dense in others, noisy everywhere, and living on an irregular grid of strikes and
-expiries that changes daily. Everything downstream of those quotes, including marking books, computing Greeks, calibrating stochastic volatility and local volatility models, and stress testing portfolios, relies not on the quotes themselves but on a \emph{smoothed and completed surface} constructed from them.
- The construction of that
-surface is therefore not a preprocessing detail: it is the first model in the pricing chain, and
-its errors propagate into every model behind it \cite{fengler2009}.
+A common problem in equity derivatives is to reconstruct a complete volatility surface from observed option quotes. The market does not publish an implied volatility \emph{surface}; it publishes a few thousand option quotes, with many quotes in some areas, few in others, noisy data, and a grid of strikes and maturities that changes every day. Everything downstream of those quotes, from marking books and computing Greeks to calibrating stochastic and local volatility models, stress testing portfolios, uses not the quotes themselves but a \emph{smoothed and completed surface} built from them. So errors at this stage can affect every model that follows \cite{fengler2009}.
 
-The construction is constrained. A surface that fits the quotes but admits \emph{static arbitrage}, such as a butterfly with a nonnegative payoff but a negative price or a calendar spread exhibiting the same defect, is not merely inelegant. By the Breeden--Litzenberger identity
-\cite{breeden1978} it corresponds to a negative risk-neutral density; by Dupire's formula
-\cite{dupire1994} it corresponds to a negative local variance; operationally it produces false
-Greeks and phantom P\&L \cite{fengler2009}. The tension of the field is that the two goals
-conflict: fitting the quotes pulls toward flexibility, excluding arbitrage pulls toward rigidity.
+The construction is constrained because the surface must also satisfy basic no-arbitrage conditions. A model can fit the observed quotes very well and still produce prices that allow a risk-free profit. This is known as \emph{static arbitrage}. The two main forms considered here are butterfly arbitrage across strikes and calendar arbitrage across maturities.
 
-Three families of approaches coexist. \emph{Parametric} surfaces, most notably SVI \cite{gatheral2004} and its surface extension SSVI \cite{gatheraljacquier2014}, provide closed-form derivatives and, in the case of SSVI, explicit no-arbitrage conditions, but rely on a relatively rigid functional form. \emph{Per-surface neural smoothers} \cite{ackerer2020,hoshisashi2023} retain a parametric prior and augment it with a neural correction term. No-arbitrage is imposed through \emph{soft penalties} applied to surface derivatives, which are computed exactly using automatic differentiation. \emph{Neural operators} \cite{wiedemann2025,lu2021,kovachki2023} extend this idea by learning the smoothing \emph{map} from quote configurations to complete surfaces, rather than fitting a separate model for each day. This amortises training over the full historical dataset and allows a new surface to be evaluated in milliseconds.
+These violations also affect the models built from the surface. Through the Breeden--Litzenberger identity \cite{breeden1978}, butterfly arbitrage can lead to a negative risk-neutral density. Through Dupire's formula \cite{dupire1994}, arbitrage violations can also produce negative local variance \cite{fengler2009}. Thus there is a clear trade-off between fit and structure. A flexible model can follow noisy market quotes closely but introduce arbitrage.
 
+The literature offers three main families of models, differing by how much of the surface is specified in advance and how much is learned from data:
 
-\section{The research gap: what do soft constraints actually guarantee?}
-
-The thesis was designed as a controlled benchmark: the three families implemented on one dataset,
-under one protocol, with one audit. That benchmark exists and is reported in full. But building
-it surfaced a sharper question. Midway through the derivative-constrained smoother, the training
-log displayed two numbers side by side. The first was \texttt{pen\_cal}, the calendar-arbitrage
-term of the training loss: the average of $\operatorname{ReLU}(-\partial_\tau w_\theta)^2$ over
-the calendar collocation nodes, which is positive wherever total variance decreases in maturity
-(a calendar violation) and zero wherever it does not. It read \texttt{pen\_cal = 0.000e+00}, meaning that at every node of its collocation grid the fitted surface had a
-non-negative maturity slope and the penalty had nothing to punish. The second number came from
-an independent audit grid, finer than and disjoint from the collocation grid, and reported a
-$28\%$ calendar-violation rate on the very same surface. Both numbers were true: the penalty was
-satisfied exactly \emph{where it was sampled}, and the surface violated the constraint \emph{between}
-the sampled nodes. The penalty
-had been minimised to zero \emph{where it was sampled}, and the surface violated \emph{between
-the samples}, because the collocation grid, exponentially spaced in maturity as prescribed for
-the butterfly constraint, left a $0.41$-year hole exactly where calendar arbitrage lives.
-
-This observation, which gives the most literal interpretation of Chataigner et al.'s warning that penalties act ``only on the grid'' \cite{chataigner2020}, reshaped the direction of the thesis. Soft constraints are ultimately statements about a particular sampling set. The relevant question for any constrained smoother is therefore not \emph{whether the penalty is zero}, but \emph{where it is zero, how that set relates to the regions in which the constraint may fail, and what such failures represent in economic terms}.\\
-
-
-The thesis answers this question three times, at increasing levels of generality:
 \begin{enumerate}
-\item \textbf{Diagnosis and repair} (Section~\ref{sec:deep}): the blind spot is exhibited,
-      explained by an interaction between the geometry of the two arbitrage constraints and the
-      grid that serves them, and repaired by \emph{constraint-specific collocation}. On a stress
-      test whose own validity is verified by a two-condition gate, material calendar violations
-      fall from $34.4\%$ to $0.0\%$.
-\item \textbf{Transversality} (Section~\ref{sec:operator}): the neural operator inherits the
-      pathology in a stronger form---blind between nodes \emph{and} across days. Its own
-      penalty-grid audit reports near-zero violations on $386$ out-of-sample days; an independent
-      fine audit flags $330$ of them as materially butterfly-violating.
-\item \textbf{Pricing the failure} (Chapter~\ref{ch:downstream}): through
-      $\sigma_{\mathrm{loc}}^2=\partial_\tau w/g$, the audited quantities \emph{are} the pricing
-      quantities. Violations become negative local variances requiring repair on up to $50\%$ of
-      the operator's surface, negative density mass up to $230\%$, and a measurable degradation
-      of residual-signal quality.
+\item \textbf{\emph{Parametric models}}, such as SVI and SSVI \cite{gatheral2004,gatheraljacquier2014}, fit a fixed functional form to each surface. This gives closed-form derivatives and, for SSVI, explicit no-arbitrage conditions, but the fixed form can limit how closely the model follows the observed quotes.
+
+\item \textbf{\emph{Per-surface neural smoothers}} \cite{ackerer2020,hoshisashi2023} keep a parametric model as a prior and add a neural correction. Arbitrage is controlled through soft penalties on surface derivatives.
+
+\item \textbf{\emph{Neural operators}} \cite{wiedemann2025,lu2021,kovachki2023} learn the mapping from a day's quotes to the full surface instead of fitting each day separately. Once trained they can produce surfaces for new trading days without refitting.
 \end{enumerate}
 
-\paragraph{Constructive counterpart.} The critique has a constructive twin. The
-Gatheral--Jacquier theory is used not only as an audit but as a \emph{certificate}: our SSVI
-prior is calibrated \emph{inside} the no-arbitrage region of \cite{gatheraljacquier2014}
-(Theorem~\ref{lem:range}), so the ablation finding ``the prior does the protective work'' rests on a
-theorem, not on luck. Symmetrically, every claim about a stress test or an invariance property is
-\emph{gated}: a fit-validity gate certifies that a stressor was actually fitted before its
-arbitrage comparison is read, and a collapsed operator's trivially perfect discretization
-invariance is excluded rather than reported. The theoretical chapter adds two elementary but,
-to our knowledge, previously unstated formalisations of the mechanism: a \emph{node-gap bound}
-(Theorem~\ref{prop:nodegap}) showing that the depth of a calendar violation between
-collocation nodes scales \emph{linearly} with the node gap, and a curvature-inertness argument showing that
-piecewise-affine correctors make the butterfly penalty structurally blind to the very derivative
-it constrains (Section~\ref{sec:softtheory}).
+
+
+\section{The research gap:what do soft constraints guarantee?}
+
+The thesis started as a controlled comparison of the three model families on the same dataset and using the same evaluation protocol / audit. However, during the experiments a more specific issue became clear.
+
+While training the derivative-constrained smoother, the calendar penalty was exactly zero on the collocation grid used for training. This suggested that the surface satisfied the calendar constraint at all points where the model was checked. But when the same surface was evaluated on a separate and finer audit grid, calendar violations appeared on 28\% of the points.
+
+Both results were correct. The penalty was zero where it was evaluated but violations appeared between those points. The reason was the choice of collocation grid. Maturities were spaced exponentially, which works well for the butterfly constraint, but left a large gap of about five months in a region where calendar arbitrage could occur. In other words the model was not being checked where the violation appeared.
+
+Chataigner \cite{chataigner2020} already noted that soft penalties act ``only on the grid.'' Our results show exactly why this matters. A penalty can be zero at the points where it is evaluated while the surface still violates the constraint between them. So what is really at stake here is not only whether the penalty reaches zero, but where it is checked and what happens when violations affect pricing.
+
+The thesis studies this problem in three steps:
+
+\begin{enumerate}
+
+    \item \textbf{Diagnosis and repair} (Section~\ref{sec:deep}): we identify the source of the blind spot. The two arbitrage constraints require different grid structures. Thus, we used a separate grid for each constraint. This allows to reduce material calendar violations from $34.4\%$ to $0.0\%$.
+    
+    \item \textbf{Extension to neural operators} (Section~\ref{sec:operator}): the same issue appears again in the neural operator, but now in two dimensions. Violations can occur between grid points and on days that were not seen during training. Although the training penalty remains close to zero, an independent audit finds material butterfly violations on up to $356$ of the $386$ out-of-sample days.
+    
+    \item \textbf{Pricing consequences} (Chapter~\ref{ch:downstream}): we then study what these violations mean in practice. They can lead to negative local variance, negative implied densities, and weaker information in model residuals. In the most affected cases, around half of the operator surface requires repair before it can be used for pricing.
+
+\end{enumerate}
+
+Each problem also suggests its own solution, which we develop alongside the analysis. The prior is proved to be arbitrage-free, so its protective role is guaranteed rather than assumed. When this prior is built into the neural operator, the violations disappear without reducing accuracy.
+
 
 \section{Contributions}
 
 \begin{enumerate}[label=(\roman*)]
-\item A validated replication of the Gatheral--Jacquier no-arbitrage theory and calibration
-recipes, matched to the paper's own numbers to $10^{-7}$, including the identification and
-correction of a missing term in the published inverse of the natural-parameter map
-(Section~\ref{sec:parametric}, Remark~\ref{rem:gjtypo});
-\item a derivative-constrained deep smoother with exact-autodiff penalties, and the diagnosis,
-mechanism and repair of the \emph{collocation blind spot}, including the node-vs-audit gap and a
-materiality threshold as standard diagnostics (Section~\ref{sec:deep});
-\item a certified-arbitrage-free SSVI prior via an endpoint-monotonicity argument
-(Theorem~\ref{lem:range}), together with the node-gap bound (Theorem~\ref{prop:nodegap})
-formalising why one collocation grid cannot serve two constraints;
-\item an executable operator-smoothing study (DeepONet-class and graph-neural-operator
-architectures) with a chronological 1{,}926-day design, a synthetic-pretraining transfer
-experiment, and the demonstration that the blind spot is transversal and two-dimensional
-(Section~\ref{sec:operator});
-\item a downstream-economics layer that prices the audit: Dupire local volatility,
-Breeden--Litzenberger densities, Monte-Carlo repricing, a data-level static-arbitrage scanner on
-bid/ask quotes, and a residual relative-value backtest with an arbitrage-dirty counterfactual
-(Chapter~\ref{ch:downstream}).
+
+\item \textbf{A controlled comparison of the three model families.} We implement parametric surfaces, per-surface neural smoothers, and neural operators on the same S&P~500 dataset of $1{,}926$ trading days from 2018--2025. All models are evaluated using the same protocol and the same arbitrage audit. To our knowledge, no previous study compares all three families under the same setting.
+
+\item \textbf{Replication and validation of the Gatheral--Jacquier framework.} We reproduce the no-arbitrage conditions and calibration procedures of Gatheral and Jacquier, matching the results reported in the original paper to $10^{-7}$. During this replication, we identify and correct a missing term in the published inverse of the natural-parameter transformation (Section~\ref{sec:parametric}, Remark~\ref{rem:gjtypo}).
+
+\item \textbf{Identification and repair of the collocation blind spot.} We show that no-arbitrage penalties can miss violations between the points where they are evaluated. We explain the source of this problem and correct it by using a separate collocation grid for each constraint. We also introduce the node-vs-audit gap and a materiality threshold to measure these violations (Section~\ref{sec:deep}).
+
+\item \textbf{An arbitrage-free prior and a bound on the collocation gap.} We prove that the SSVI prior is statically arbitrage-free on the domain considered here (Theorem~\ref{lem:range}). This means that its protective role is guaranteed rather than observed only empirically. We also derive a node-gap bound (Theorem~\ref{prop:nodegap}) that explains how violations can develop between collocation points and why the same grid cannot be used effectively for both constraints.
+
+\item \textbf{Extension to neural operators and a prior-based solution.} We study DeepONet and graph neural operator architectures over the full chronological sample, together with a synthetic pretraining experiment. We show that the collocation blind spot also appears in neural operators, both between grid points and on unseen trading days. We then embed the certified prior directly into the operator and let the network learn only a bounded correction. This removes material violations on all $386$ out-of-sample days while also improving the fit (Section~\ref{sec:operator}).
+
+\item \textbf{Economic consequences of arbitrage violations.} We study how these violations affect Dupire local volatility, Breeden--Litzenberger densities, and the pricing and hedging of a path-dependent barrier option under an independent Heston benchmark. The most accurate unconstrained operator misprices the barrier by $60\%$. A static-arbitrage scanner on raw bid/ask quotes and a detection-power analysis further show that these violations are better interpreted as model risk rather than as trading opportunities (Chapter~\ref{ch:downstream}).
+
 \end{enumerate}
 
+
 \section{Related work and positioning}\label{sec:related}
+\vspace{+1.0em}
+\begingroup
+\setlength{\parskip}{-0.9em}
 
-\paragraph{Parametric surfaces.} SVI \cite{gatheral2004} owes its longevity to three
-properties: closed-form derivatives, trader-interpretable parameterisations (raw, natural and
-Jump--Wings), and exact large-maturity consistency with the Heston model. Gatheral and Jacquier
-\cite{gatheraljacquier2014} supply the modern theory, and it is the backbone of
-Chapter~\ref{ch:theory}: explicit butterfly conditions expressed through the Durrleman function
-$g$, exact conversions between the three parameterisations, an algorithm eliminating butterfly
-arbitrage in Jump--Wings space, the SSVI surface with closed-form static-arbitrage conditions
-(Theorems~\ref{thm:gjcal} and~\ref{thm:gjbfly}), and arbitrage-free interpolation and
-extrapolation recipes. Section~\ref{sec:parametric} replicates all of it and validates each
-component against the numbers reported in the original paper.
+\paragraph{Parametric and arbitrage-free surfaces.}
+SVI and  SSVI \cite{gatheral2004, gatheraljacquier2014} remain standard parametric approaches to implied volatility modelling. They are popular because they are simple, easy to differentiate and  SSVI come with explicit no-arbitrage conditions. Earlier work also addressed arbitrage-free smoothing directly in price space. Kahale \cite{kahale2004} uses convexity-preserving interpolation, while Fengler \cite{fengler2009} formulates the problem as a constrained spline optimisation. These approaches impose the constraints directly rather than through a training loss. Chapter~\ref{ch:theory} develops the SVI/SSVI framework used as the parametric benchmark in this thesis.
 
-\paragraph{Arbitrage-free smoothing before machine learning.} The problem of producing a surface
-that is simultaneously faithful to the quotes and free of static arbitrage predates any learned
-model, and the early literature solved it by choosing model classes on which the constraints are
-tractable. Kahale \cite{kahale2004} interpolates directly in price space using
-convexity-preserving splines, so that the butterfly condition cannot be violated by
-construction. Fengler \cite{fengler2009} formulates smoothing as a constrained optimisation over
-natural cubic splines with the no-arbitrage inequalities imposed as hard linear constraints, and
-documents the operational cost of ignoring them: negative transition probabilities and
-misleading Greeks. Cont and da Fonseca \cite{cont2002} characterise the empirical dynamics of
-the surface itself, a reminder that a smoother must be stable from one day to the next and not
-merely accurate on a single cross-section, which is why day-over-day stability appears among the
-downstream metrics of Chapter~\ref{ch:downstream}. Two features of this literature carry
-through: the constraints are imposed \emph{exactly}, and the model class is chosen so that the
-constraint set remains tractable. The learned smoothers below relax both, and that is precisely
-where this thesis intervenes.
+\paragraph{Neural smoothing and soft constraints.}
+Neural networks have long been used for option pricing and surface approximation \cite{hutchinson1994,dugas2001}. More recent approaches enforce financial structure through derivatives of the fitted network, made available by automatic differentiation \cite{baydin2018}. This idea is closely related to collocation methods used in differential-equation learning \cite{lagaris1998,raissi2019}, where a constraint is evaluated only at a finite set of points. For implied volatility surfaces, Ackerer \cite{ackerer2020} combine a parametric prior with a neural correction and impose no-arbitrage through soft penalties on an extended collocation grid. Hoshisashi et al.\ \cite{hoshisashi2023} use a related derivative-constrained approach with automatic differentiation. Chataigner et al.\ \cite{chataigner2020} make explicit an important limitation of this methodology: the constraints are enforced only on the grid where they are evaluated. Section~\ref{sec:deep} studies this issue directly and measures the gap between the training grid and an independent audit grid.
 
-\paragraph{Neural networks for option surfaces: a short history.} Learned option pricing begins
-with Hutchinson, Lo and Poggio \cite{hutchinson1994}, who fit pricing and hedging functions
-nonparametrically and already observe that an unconstrained network can reproduce prices while
-violating the qualitative shape properties theory requires. Dugas et al.\ \cite{dugas2001} give
-the first influential answer, building the constraints into the \emph{architecture} through
-functional forms that are monotone and convex by construction. The alternative answer, imposing
-constraints through the \emph{loss} instead of the architecture, arrives from the numerical-PDE
-literature. Lagaris et al.\ \cite{lagaris1998} train networks to satisfy differential equations
-by penalising the residual at sampled points, and physics-informed neural networks
-\cite{raissi2019} turn this into a general methodology resting on one observation: because a
-network's derivatives are available \emph{exactly} through automatic differentiation
-\cite{baydin2018}, a differential constraint can be evaluated pointwise and penalised during
-training. That observation is what makes derivative-constrained smoothing possible at all, and
-every soft-constrained model in this thesis inherits it. It also carries the limitation this
-thesis measures, and the limitation is visible already in the PINN formulation: the residual is
-penalised on a finite set of collocation points, so what training enforces is a statement about
-that set.
+\paragraph{Neural operators.}
+Neural operators extend standard neural networks by learning mappings between functions rather than fitting a single function at a time. DeepONet \cite{lu2021} and graph-based neural operators \cite{li2020gno,kovachki2023} provide two main constructions. Operator Deep Smoothing \cite{wiedemann2025} applies this idea to implied volatility by learning a map from a day's option quotes to the corresponding surface. Once trained, the model can therefore be applied to new trading days without fitting a new network. Section~\ref{sec:operator} studies this setting and asks whether the same collocation issue remains when the model must generalise across days.
 
-\paragraph{Per-surface neural smoothers.} Ackerer et al.\ \cite{ackerer2020} bring the
-prior-times-corrector design to implied volatility: a parametric surface multiplied by a neural
-correction, with the no-arbitrage conditions imposed as soft penalties on an extended
-collocation grid, their constraint set $\mathcal I_{C4,5,6}$ covering calendar arbitrage,
-butterfly arbitrage and far-wing linearity. Their sweep over $\lambda\in\{0,1,10\}$ quantifies
-the fit-versus-arbitrage trade-off that Section~\ref{sec:deep} reproduces and extends, and their
-architecture is the one this thesis certifies and then transplants into an operator. Hoshisashi
-et al.\ \cite{hoshisashi2023} supply the training mechanics adopted here, exact nested
-derivatives by automatic differentiation and penalties evaluated on a mesh distinct from the
-quotes, together with the candid acknowledgement that soft constraints do not fully secure the
-no-arbitrage conditions. Chataigner et al.\ \cite{chataigner2020} work on the Dupire side and
-state the limitation this thesis makes precise: the penalties act only on the sampled grid.
-Their closing remark that extraction \emph{from implied volatilities} is left to a further paper
-identifies the gap addressed in Chapter~\ref{ch:downstream}.
+\paragraph{Economic consequences.}
+The no-arbitrage conditions are directly connected to quantities used in pricing. Breeden and Litzenberger \cite{breeden1978} link option-price convexity to the risk-neutral density, while Dupire \cite{dupire1994} links surface derivatives to local volatility. These relationships provide a natural way to assess whether arbitrage violations matter beyond the audit grid. Recent work also connects volatility-surface errors to trading and residual-based signals \cite{duan2026}, while SANOS \cite{sanos2026} considers non-parametric arbitrage-free smoothing on OptionMetrics data. Chapter~\ref{ch:downstream} uses these links to study the pricing and economic consequences of the violations found earlier in the thesis.
 
-\paragraph{From networks to operators.} A network learns one function; an operator learns a map
-between function spaces, so a single trained model applies to a whole family of inputs. Chen and
-Chen \cite{chenchen1995} prove the universal-approximation theorem for nonlinear operators that
-underwrites the programme, and DeepONet \cite{lu2021} turns it into a practical architecture by
-separating the encoding of the input function (branch) from the query coordinates (trunk). In
-parallel, Li et al.\ represent the operator as a composition of learned kernel integrals,
-discretised either by message passing over a graph \cite{li2020gno} or in Fourier space
-\cite{li2021fno}; Kovachki et al.\ \cite{kovachki2023} unify these constructions and formalise
-discretization invariance. Operator Deep Smoothing \cite{wiedemann2025} applies the
-graph-neural-operator variant to implied volatility, mapping a day's quote cloud directly to a
-smoothed surface, trained on roughly a decade of proprietary data, evaluating in milliseconds,
-with soft no-arbitrage penalties resolved by finite differences on a grid.
-Section~\ref{sec:operator} reproduces that design in the academic-data regime, adds a
-synthetic-pretraining transfer axis, and audits the penalties on an independent grid.
+\paragraph{Positioning.}
+This thesis differs from the existing literature in three main ways. First, it compares parametric surfaces, per-surface neural smoothers, and neural operators on the same dataset and under the same evaluation protocol. Second, it measures the collocation blind spot directly by comparing the points used for training with an independent audit grid, and shows that the same problem appears both within a surface and across unseen trading days. Third, it evaluates the resulting violations through quantities that matter for pricing rather than reporting only the fraction of grid points that fail an arbitrage test. The aim is therefore not only to compare which model fits the data best, but also to understand what its no-arbitrage constraints actually guarantee.
 
-\paragraph{Downstream and economic layers.} Breeden and Litzenberger \cite{breeden1978}, Dupire
-\cite{dupire1994} and Gatheral \cite{gatheral2011book} provide the identities developed in
-Chapter~\ref{ch:theory}; Durrleman \cite{durrleman2010} and Roper \cite{roper2010}, together
-with Cox and Hobson \cite{coxhobson2005} and Kellerer \cite{kellerer1972}, supply the
-characterisation results on which the audit rests. Lee's moment formula \cite{lee2004}
-constrains the admissible behaviour of the wings. More recent work connects surface construction
-to trading directly: Duan \cite{duan2026} builds a delta-neutral strategy on residuals from a
-parametric model augmented by a neural network, and the recent SANOS framework \cite{sanos2026}
-proposes a non-parametric arbitrage-free smoother on the same OptionMetrics universe. Together
-these indicate that current research is active on precisely the territory studied here.
+\endgroup
+% \section{Outline}
 
-\paragraph{Positioning.} Relative to this literature, the thesis makes three contributions.
-First, it provides a controlled \emph{cross-family} comparison on a common dataset under a
-unified evaluation protocol, which none of the cited studies undertakes. Second, to the best of
-our knowledge, it is the first study to \emph{measure} the collocation blind spot rather than
-caveat it: the gap between what the penalty grid reports and what an independent audit grid
-finds, the materiality of the resulting violations, and the frequency of blind days. It further
-shows the phenomenon is transversal, appearing both in per-day smoothers and in neural
-operators, and in two directions, between grid nodes in space and across days in time.
+% Chapter~\ref{ch:theory} develops the model-free theory of static arbitrage and the parametric
+% surfaces built on it: the arbitrage conditions in $(k,w)$ coordinates, the Durrleman condition,
+% the implied risk-neutral density, Dupire's formula, and the SVI and SSVI parameterisations
+% together with the Gatheral--Jacquier certificates and their proofs.
+% Chapter~\ref{ch:learning} turns to learned surfaces, and contains the theory of soft constraints
+% and sampling sets, including the node-gap bound and the materiality calculus, followed by the
+% approximation background for neural networks and neural operators.
 
-Third, the thesis insists that a violation be reported in units a practitioner can act on rather
-than as a percentage of grid cells. We call this \emph{pricing the audit}, and the bridge is the
-Dupire identity of Proposition~\ref{prop:dupire}, $\sigma^2_{\mathrm{loc}}=\partial_\tau w/g$:
-the two quantities the audit monitors are exactly the numerator and the denominator of the local
-variance a desk simulates with. A butterfly violation is therefore not merely $g<0$ on some
-fraction of a grid; it is a region in which the local variance is negative or unbounded, so a
-Monte-Carlo scheme cannot be initialised there without overriding the model by hand.
-Chapter~\ref{ch:downstream} reports exactly that: the share of the surface requiring such
-repair, the negative mass carried by the implied densities, and whether an arbitrage-dirty
-surface degrades the information content of the residuals computed against it. This is what
-\emph{economic} means in this thesis. It is deliberately distinct from the claim that a
-violation is \emph{tradable}, which is a separate question about executable bid-ask quotes and
-is treated separately in Section~\ref{sec:scanner}.
-
-\section{Outline}
-
-Chapter~\ref{ch:theory} develops the model-free theory of static arbitrage and the parametric
-surfaces built on it. It covers arbitrage conditions in $(k,w)$ coordinates, the Durrleman condition, the implied risk-neutral density, Dupire's formula, the SVI and SSVI parameterisations, the full Gatheral and Jacquier certificates and their proofs, the theory of soft constraints and sampling sets, including the node-gap bound and the materiality calculus, neural-network approximation, and neural operators.
-
-Chapter~\ref{ch:data} presents the data-processing pipeline and the unified evaluation methodology applied to all model families. Chapter~\ref{ch:methods} implements and evaluates the three methodological families. It covers the parametric benchmark in Section~\ref{sec:parametric}, the derivative-constrained deep smoother and the collocation blind spot in Section~\ref{sec:deep}, and the neural operators in Section~\ref{sec:operator}. Chapter~\ref{ch:downstream} evaluates the downstream economic consequences of the audit through local volatility, implied densities, the data-level arbitrage scanner, the residual backtest, and VIX, before bringing the different evaluation layers together. Chapter~\ref{ch:conclusion} concludes. Appendix~\ref{app:repro} links every figure and table to the notebook used to generate it.
-
+% Chapter~\ref{ch:data} presents the data pipeline and the evaluation protocol shared by every
+% model family. Chapter~\ref{ch:methods} implements and evaluates the three families: the
+% parametric benchmark in Section~\ref{sec:parametric}, the derivative-constrained deep smoother
+% and the collocation blind spot in Section~\ref{sec:deep}, and the neural operators in
+% Section~\ref{sec:operator}. Chapter~\ref{ch:downstream} prices the audit through local
+% volatility, implied densities, a data-level arbitrage scanner, a residual backtest, a barrier
+% experiment and VIX replication, before bringing the evaluation layers together.
+% Chapter~\ref{ch:conclusion} concludes, and Appendix~\ref{app:repro} links every figure and table
+% to the notebook that generated it.
