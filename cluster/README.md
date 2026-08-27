@@ -1,152 +1,120 @@
-# Production run on the Telecom cluster
+# Running NB03–NB06 on a compute cluster
 
-Everything below assumes `~/thesis` on the shared filesystem `/home/infres/$USER`,
-which is visible from **every** node (`lame*`, `gpu*`). That is what makes the split
-work: NB03 on a CPU node and NB04 on a GPU node write into the *same* `data/clean/`,
-so you transfer once and collect once.
+Five files, one entry point. Everything below assumes `~/thesis` on a shared
+filesystem visible from every node, so a CPU node and a GPU node can write into
+the same `data/clean/` and you transfer once, collect once.
 
-## What changed in the notebooks
+```
+run.sh               single entry point (smoke / nb03 / nb04 / nb05 / nb06 / all)
+env_thesis.sh        shared environment + the nbconvert helper (sourced by run.sh)
+patch_notebooks.py   makes NB03–NB06 headless-safe and exports every figure to disk
+requirements.txt     pinned Python environment
+```
 
-The cluster does not run `notebooks/` directly, it runs a patched copy built from
-the repo root:
+## 0. Build the patched notebooks (on your laptop)
+
+The notebooks in `notebooks/` are the canonical source. The cluster runs a
+*patched* copy: `patch_notebooks.py` inserts one bootstrap cell per notebook
+that makes `fig.show()` headless-safe (no browser front-end can kill the run)
+and writes every plotly figure to disk as vector PDF, prefixed per notebook and
+per shard so parallel shards never overwrite each other. It is idempotent —
+`build/` is disposable and gitignored, regenerate it, never edit it.
 
 ```bash
 mkdir -p build && cp notebooks/0{3,4,5,6}_*.ipynb build/
 python cluster/patch_notebooks.py build
 ```
 
-`patch_notebooks.py` is idempotent and inserts one bootstrap cell per notebook,
-so `build/` is disposable and gitignored — regenerate it, never edit it. The
-patch:
+## 1. Transfer (once)
 
-- monkey-patches `plotly.graph_objects.Figure.show`, so **all 18 existing `fig.show()`
-  calls now write the figure to disk** as vector PDF (plus interactive HTML) in
-  `data/clean/figures/`. Without this the 30-hour run produces no file you can
-  `\includegraphics` into the thesis;
-- makes `fig.show()` a no-op display-wise under `THESIS_HEADLESS=1`, so a missing
-  browser front-end cannot kill the run mid-way;
-- prefixes figure names per notebook and per shard, so parallel shards never
-  overwrite each other;
-- writes a `*_figure_manifest.parquet` mapping each file to its figure title.
-
-Your notebook logic is untouched. Nothing was hardcoded: everything stays driven
-by the env vars you already built.
-
-## 0. Transfer (once)
-
-The scripts expect a **flat** `$THESIS_ROOT` on the server: notebooks and `.sh`
-files side by side, not in `build/` and `cluster/`.
+The scripts expect a **flat** `$THESIS_ROOT`: notebooks and scripts side by side.
 
 ```bash
-rsync -avP build/*.ipynb cluster/*.sh cluster/requirements_cluster.txt \
-      $USER@ssh.enst.fr:/home/infres/$USER/thesis/
-rsync -avP data/ $USER@ssh.enst.fr:/home/infres/$USER/thesis/data/
+rsync -avP build/*.ipynb cluster/ $USER@<cluster>:~/thesis/
+rsync -avP data/clean/option_prices_clean.parquet \
+           data/clean/benchmark_svi_slices_full.parquet \
+           data/clean/benchmark_ssvi_days_full.parquet \
+           $USER@<cluster>:~/thesis/data/clean/
+rsync -avP data/raw/VIX_History.csv $USER@<cluster>:~/thesis/data/raw/
 ```
 
-Needed on the server: the three patched notebooks, the `.sh` scripts,
-`data/clean/option_prices_clean.parquet`, the two NB02 outputs
-(`benchmark_svi_slices_full.parquet`, `benchmark_ssvi_days_full.parquet`),
-and `data/raw/VIX_History.csv`.
-
-## 1. Environment (once)
+## 2. Environment (once)
 
 ```bash
-ssh lame25
-cd /home/infres/$USER/thesis
+ssh <node>
+cd ~/thesis
 python3 -m pip install virtualenv --user
-virtualenv venv --python=python3
-source venv/bin/activate
-pip install -r requirements_cluster.txt
-# torch only matters on the GPU node; match the CUDA version nvidia-smi reports
+virtualenv venv --python=python3 && source venv/bin/activate
+pip install -r requirements.txt
+# torch only matters for NB04; match the CUDA version nvidia-smi reports
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
 
-`kaleido==0.2.1` is pinned deliberately: newer kaleido needs a system Chrome you
-cannot install without root.
+`kaleido==0.2.1` is pinned deliberately: newer kaleido needs a system Chrome
+you cannot install without root.
 
-## 2. Smoke test (5 minutes — do not skip)
-
-```bash
-ssh gpu1
-cd /home/infres/$USER/thesis && source venv/bin/activate
-./run_smoke_test.sh
-```
-
-Runs the full NB03 → NB04 → NB05 chain on a handful of days, in a sandbox
-directory. Confirms paths, packages, CUDA and figure export. If the figure count
-at the end is zero, fix that before launching production.
-
-## 3. Production
-
-Two nodes, in parallel, each in its own tmux session.
-
-**NB03 on a CPU node.** NB03 is sequential per process, so one process would use
-one core out of 128. It is sharded by year instead: 8 parallel processes, roughly
-30 h → 4 h.
+## 3. Smoke test (minutes — do not skip)
 
 ```bash
-ssh lame25
-cd /home/infres/$USER/thesis && source venv/bin/activate
-tmux new -s nb03
-./run_nb03_shards.sh
-# ctrl+B then D  -> detach, close the laptop
+./run.sh smoke
 ```
 
-**NB04 on a GPU node**, at the same time:
+Runs the full NB03 → NB04 → NB05 chain on a handful of days in a sandboxed
+output directory (`data/smoke/`, deleted afterwards). It proves the paths, the
+packages, CUDA and the figure export end to end — almost every failed cluster
+run would have failed here first. If the figure count at the end is zero, fix
+that before launching production.
+
+## 4. Production
+
+**Everything on one node, one launch** (a GPU node; `cpu` mode exists for
+nodes whose GPUs are too old for modern torch):
 
 ```bash
-ssh gpu1
-nvidia-smi                       # pick a free GPU index
-cd /home/infres/$USER/thesis && source venv/bin/activate
-tmux new -s nb04
-CUDA_DEVICE=0 ./run_nb04_gpu.sh
-# ctrl+B then D
+tmux new -s run
+CUDA_DEVICE=0 ./run.sh all          # or: ./run.sh all cpu
+# ctrl+B then D -> detach, close the laptop
 ```
 
-NB04 trains 4 families × 3 regimes, including `deeponet_prior` and `gno_prior`
-(the SSVI-prior-embedded operators, `NB04_RUN_PRIOR=1`).
-
-**Monitoring**, from anywhere:
+**Or split across nodes, in parallel** — NB03 is CPU-bound and sharded by year
+(8 processes, ~30 h → ~4 h on a big node), NB04 is the only GPU consumer:
 
 ```bash
-ssh lame25 'tail -f /home/infres/'$USER'/thesis/logs/nb03_2018.log'
-ssh gpu1   'nvidia-smi'
+# CPU node                              # GPU node, at the same time
+tmux new -s nb03                        tmux new -s nb04
+./run.sh nb03                           CUDA_DEVICE=0 ./run.sh nb04
 ```
 
-## 4. NB05, once both are done
+Then, once both are done (NB05 refuses to start on empty pack directories
+rather than "succeeding" with every section skipped):
 
 ```bash
-ssh lame25
-cd /home/infres/$USER/thesis && source venv/bin/activate
-tmux new -s nb05
-./run_nb05.sh
+./run.sh nb05
+./run.sh nb06
 ```
 
-It refuses to start if either pack directory is empty, rather than "succeeding"
-with every section silently skipped.
+Monitoring, from anywhere: `tail -f ~/thesis/logs/*.log`.
 
-## 5. Collect everything
-
-From your laptop:
+## 5. Collect
 
 ```bash
-rsync -avP $USER@ssh.enst.fr:/home/infres/$USER/thesis/data/clean/ ./data/clean/
-rsync -avP $USER@ssh.enst.fr:'/home/infres/'$USER'/thesis/*_executed.ipynb' ./
-rsync -avP $USER@ssh.enst.fr:/home/infres/$USER/thesis/logs/ ./logs/
+rsync -avP $USER@<cluster>:~/thesis/data/clean/ ./data/clean/
+rsync -avP $USER@<cluster>:'~/thesis/*_executed.ipynb' ./runs/
+rsync -avP $USER@<cluster>:~/thesis/logs/ ./logs/
 ```
 
-You get the executed notebooks (all outputs inline), every `nb0*.parquet`, the
-`.npz` packs, and `data/clean/figures/*.pdf` ready for LaTeX.
+You get the executed notebooks (all outputs inline), every `nb0*.parquet`
+table, the `.npz` surface packs, and `figures/*.pdf` ready for LaTeX.
 
 ## Restarting after a crash
 
-NB03 checkpoints every 25 days per shard, and each shard is independent: relaunch
-only the failed year with `YEARS="2021" ./run_nb03_shards.sh`. NB04 supports
+NB03 checkpoints every 25 days per shard and each shard is independent —
+relaunch only the failed year with `./run.sh nb03 2021`. NB04 supports
 `NB04_RESUME=1`, which reloads the saved state dicts and re-runs only
 evaluation, audit and export.
 
 ## Cluster etiquette
 
-BLAS threads are capped at 4 per shard so 8 shards do not thrash 128 cores, and
-`CUDA_VISIBLE_DEVICES=""` is set on the CPU notebooks so they never hold a GPU
-slot someone else needs. Kill your tmux sessions when the runs are collected.
+BLAS threads are capped per shard so parallel shards don't thrash the node, and
+`CUDA_VISIBLE_DEVICES=""` is set on every CPU notebook so they never hold a GPU
+slot someone else needs. Kill your tmux sessions once the runs are collected.

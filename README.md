@@ -62,6 +62,42 @@ The thesis turns this observation into its main line of argument:
   scanner finds essentially **no executable static arbitrage in eight years of SPX quotes**:
   the violations are model risk, not a trading opportunity.
 
+## Contributions
+
+As stated in the thesis (Chapter 1):
+
+1. **A controlled comparison of the three model families.** Parametric surfaces,
+   per-surface neural smoothers and neural operators are implemented on the same
+   S&P 500 dataset of 1,926 trading days (2018–2025) and evaluated under the same
+   protocol and the same arbitrage audit. To our knowledge, no previous study
+   compares all three families in the same setting.
+2. **Replication and validation of the Gatheral–Jacquier framework.** The
+   no-arbitrage conditions and calibration procedures are reproduced, matching the
+   results of the original paper to 1e-7 — and the replication uncovers and
+   **corrects a missing term in the published inverse of the natural-parameter
+   transformation** (thesis, Remark on the GJ typo).
+3. **Identification and repair of the collocation blind spot.** No-arbitrage
+   penalties can miss violations between the points where they are evaluated. The
+   source of the problem is explained and repaired with a separate collocation
+   grid per constraint; the node-vs-audit gap and a materiality threshold are
+   introduced to measure it.
+4. **An arbitrage-free prior and a bound on the collocation gap.** The SSVI prior
+   is *proved* statically arbitrage-free on its working domain (endpoint
+   certification), so its protective role is guaranteed rather than observed; a
+   node-gap theorem explains how violations develop between collocation points and
+   why one grid cannot serve both constraints.
+5. **Extension to neural operators and a prior-based solution.** The blind spot
+   reappears in DeepONet and graph neural operators, both between grid points and
+   on unseen trading days. Embedding the certified prior in the operator — the
+   network learns only a bounded correction — removes material violations on all
+   386 out-of-sample days while also improving the fit.
+6. **Economic consequences of arbitrage violations.** Violations propagate into
+   Dupire local volatility, Breeden–Litzenberger densities, and the pricing and
+   hedging of a path-dependent barrier option under an independent Heston
+   benchmark — the most accurate unconstrained operator misprices the barrier by
+   60%. A static-arbitrage scanner on raw bid/ask quotes and a detection-power
+   analysis show these violations are model risk, not trading opportunities.
+
 ## The notebooks
 
 The pipeline is six notebooks, run in order. NB01–NB02 carry their outputs inline; NB03–NB06
@@ -103,7 +139,43 @@ python cluster/patch_notebooks.py build
 ```
 
 The patch is idempotent and `build/` is disposable (gitignored). Then rsync `build/` plus
-`cluster/*.sh` to the cluster and follow [cluster/README.md](cluster/README.md) — the
-scripts expect a *flat* `$THESIS_ROOT`, notebooks and `.sh` side by side. Every knob is
-env-driven (`NB03_*`, `NB04_*`, `NB05_*`, `NB06_*`), so staging and production runs differ
-only in environment variables.
+the `cluster/` files to a flat `$THESIS_ROOT` on the cluster and drive everything through
+the single entry point:
+
+```bash
+./run.sh smoke        # sandboxed end-to-end check (minutes) — do not skip
+./run.sh all          # smoke -> NB03 -> NB04 -> NB05 on one node, one launch
+./run.sh nb03 2021    # or piecewise: relaunch a single NB03 year shard, etc.
+```
+
+Every knob is env-driven (`NB03_*`, `NB04_*`, `NB05_*`, `NB06_*`), so staging and
+production runs differ only in environment variables.
+
+## Key references
+
+The papers the project is built on:
+
+**Parametric surfaces and static arbitrage**
+- J. Gatheral. *A Parsimonious Arbitrage-Free Implied Volatility Parameterization…* (SVI). Global Derivatives, 2004.
+- J. Gatheral, A. Jacquier. *Arbitrage-Free SVI Volatility Surfaces*. Quantitative Finance 14(1), 2014 — the SSVI framework, replicated and certified here.
+- M. R. Fengler. *Arbitrage-Free Smoothing of the Implied Volatility Surface*. Quantitative Finance 9(4), 2009.
+- N. Kahalé. *An Arbitrage-Free Interpolation of Volatilities*. Risk 17(5), 2004.
+- R. W. Lee. *The Moment Formula for Implied Volatility at Extreme Strikes*. Mathematical Finance 14(3), 2004.
+
+**Neural smoothing and soft constraints**
+- D. Ackerer, N. Tagasovska, T. Vatter. *Deep Smoothing of the Implied Volatility Surface*. NeurIPS, 2020 — the prior × corrector architecture of NB03.
+- K. Hoshisashi, C. E. Phelan, P. Barucca. *No-Arbitrage Deep Calibration for Volatility Smile and Skewness*. arXiv:2310.16703, 2023 — exact autodiff derivatives in the penalties.
+- M. Chataigner, S. Crépey, M. Dixon. *Deep Local Volatility*. Risks 8(3), 2020 — the "constraints act only on the grid" caveat this thesis quantifies.
+- A. G. Baydin, B. A. Pearlmutter, A. A. Radul, J. M. Siskind. *Automatic Differentiation in Machine Learning: a Survey*. JMLR 18(153), 2018.
+
+**Neural operators**
+- R. Wiedemann, A. Jacquier, L. Gonon. *Operator Deep Smoothing for Implied Volatility*. ICLR, 2025 — the operator setting of NB04.
+- L. Lu, P. Jin, G. Pang, Z. Zhang, G. E. Karniadakis. *Learning Nonlinear Operators via DeepONet…*. Nature Machine Intelligence, 2021.
+- Z. Li, N. Kovachki, et al. *Neural Operator: Graph Kernel Network for PDEs*. arXiv:2003.03485, 2020.
+- N. Kovachki, Z. Li, et al. *Neural Operator: Learning Maps Between Function Spaces…*. JMLR 24(89), 2023.
+
+**Pricing the audit**
+- D. T. Breeden, R. H. Litzenberger. *Prices of State-Contingent Claims Implicit in Option Prices*. Journal of Business 51(4), 1978.
+- B. Dupire. *Pricing with a Smile*. Risk 7(1), 1994.
+
+The full bibliography is in [thesis/chapters/bibliography.tex](thesis/chapters/bibliography.tex).

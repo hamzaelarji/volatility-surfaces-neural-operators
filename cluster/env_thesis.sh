@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared environment for every thesis run on the Telecom cluster.
-# Sourced by run_nb03_shards.sh / run_nb04_gpu.sh / run_nb05.sh
+# Sourced by run.sh
 #
 #   source env_thesis.sh
 
