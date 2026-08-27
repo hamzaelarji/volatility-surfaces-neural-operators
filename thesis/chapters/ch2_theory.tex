@@ -17,9 +17,9 @@
 A volatility smoother has to do two things: fit the observed quotes and produce reasonable prices between them. This chapter focuses on the second point.
 
 We study butterfly and calendar arbitrage in total-variance coordinates $(k,w)$, where they are captured by the signs of $g$ and $\partial_\tau w$. These quantities are used throughout the thesis to audit fitted surfaces. Dupire's identity,
-$$
+\[
 \sigma_{\mathrm{loc}}^2=\frac{\partial_\tau w}{g},
-$$
+\]
 then links these conditions directly to local variance and to the pricing analysis of Chapter~\ref{ch:downstream}.
 
 The chapter also introduces SVI and SSVI, which provide the parametric benchmark, the arbitrage-free prior used later in the neural models, and closed-form derivatives for validating automatic differentiation.
@@ -448,7 +448,7 @@ F\,\frac{e^{k}\varphi(d_-)}{2\sqrt w}\,\partial_\tau w
 \quad\Longleftrightarrow\quad
 \partial_\tau w=\sigma_{\mathrm{loc}}^2\,g,
 \]
-which is \eqref{eq:dupirekw}. This is Gatheral's equation (1.10) \cite{gatheral2011book} in our
+which is \eqref{eq:dupirekw}. This is Gatheral's equation (1.10) \cite{gatheral2006book} in our
 notation.
 \end{proof}
 
@@ -789,7 +789,7 @@ The plain power law cannot satisfy \eqref{eq:gjconds} on all of $(0,\infty)$:
 $\theta\varphi=\eta\theta^{1-\gamma}\to\infty$ as $\theta\to\infty$, and for $\gamma>\tfrac12$
 also $\theta\varphi^2\to\infty$ as $\theta\downarrow0$. No choice of $(\eta,\gamma)$ escapes
 both. But this is the wrong question to ask of a smoother, which never evaluates more than a
-\emph{compact} range of $\theta$ — and on a compact range the certificate collapses to two
+\emph{compact} range of $\theta$, and on a compact range the certificate collapses to two
 endpoint checks.
 \end{remark}
 
@@ -876,4 +876,3 @@ When fitted slices \emph{do} cross, the crossing is quantified by the \emph{cros
 points $\tilde k_1,\dots,\tilde k_n$, it is the maximum over these points of
 $\max\bigl(0,\,w(\tilde k;\chi_1)-w(\tilde k;\chi_2)\bigr)$. A penalty on total crossedness is
 the calendar-repair device of Section~\ref{sec:parametric}.
-

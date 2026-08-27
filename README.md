@@ -255,5 +255,3 @@ A neural model can look perfectly constrained at the points used during training
 The most reliable results in this study come from combining learning with structure. A certified SSVI prior provides the no-arbitrage foundation, while the neural model is left to learn the part where additional flexibility is actually useful.
 
 In this setting, that combination gives a better fit, removes material static-arbitrage violations on the complete test set, and produces surfaces that remain usable for the downstream quantities that ultimately matter: densities, local volatility, pricing and hedging.
-
-

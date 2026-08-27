@@ -166,8 +166,15 @@ extraction of local volatility from implied volatilities, under their own \S7 pr
 % ============================================================================
 
 Proposition~\ref{prop:density} restates each slice's butterfly audit as a density,
-$q=g\,\varphi(d_-)/\sqrt w$. Negative mass is the same violation expressed in the units a risk
-committee reads.
+$q=g\,\varphi(d_-)/\sqrt w$. We summarise the violation by the \emph{negative mass}
+\[
+M_{-}\;=\;100\int_{\{q<0\}}\lvert q(k)\rvert\,dk ,
+\]
+expressed as a percentage of unit probability mass. Because $q$ integrates to approximately one
+in total, a value above $100\%$ is possible: it means the negative part alone has absolute
+integral larger than the whole distribution should carry, offset by correspondingly inflated
+positive mass so that the signed integral remains near one. This is the same butterfly violation
+as in Chapter~\ref{ch:methods}, expressed in the units a risk committee reads.
 
 \begin{table}[htbp]\centering\small
 \caption{Breeden--Litzenberger densities on real staging days (three quantile maturities per
@@ -272,9 +279,7 @@ information, and whether arbitrage-dirtiness degrades it.
 
 \paragraph{Protocol.} Per (day, family), residuals are computed on held-out, in-domain quotes
 and matched to $t+h$ by (\texttt{exdate},\,strike). Two layers follow. The information layer
-reports 
-$$\mathrm{IC}=\mathrm{Spearman}(r_t,-\Delta\mathrm{IV}_{t\to t+1})$$ 
-and a decile spread
+reports $$\mathrm{IC}=\mathrm{Spearman}(r_t,-\Delta\mathrm{IV}_{t\to t+1})$$ and a decile spread
 net of entry half-spreads. The backtest uses a common universe per day, made of held-out quotes
 inside every model's domain with finite cost capped at $5\,\vp$, so that names and costs are
 identical across models and only the surface differs. Ranking is bucket-neutral
@@ -334,12 +339,12 @@ computed against it. Statistical confirmation requires the production run; the s
 validates the pipeline.
 \end{finding}
 
-\begin{figure}[htbp]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{figures/nb05_f2_cumulative.png}
     \caption{Cumulative net P\&L at $h=1$ with touch execution, cumulated over the nine trading
-    sessions common to the three 2025 families. Every family loses steadily, which is result~(1)
-    in visual form. The two deep-smoother entries have a single staging period (2018-01-08) and
+    sessions common to the three 2025 families. Every family loses steadily, the first of the two
+    patterns of \S\ref{sec:residual} in visual form. The two deep-smoother entries have a single staging period (2018-01-08) and
     appear as one overlapping marker on the left, their constrained and unconstrained P\&L being
     almost identical on that day. Source: Notebook 05, \S F2.}
     \label{fig:nb05f2}
@@ -437,64 +442,61 @@ GNO (best)           & $1.26$ & soft, train days only & \textbf{21.8\% bfly} & \
 
 Table~\ref{tab:unified} answers the four questions this thesis asks of any smoother.
 
-\paragraph{How well does it fit?} Per-slice SVI still leads on the staging sample, and the
-deep smoother and the GNO both land inside the SVI--SSVI window that
-Section~\ref{sec:parametric} defined. The operator does so at amortised cost, which is the
-whole point of learning the smoothing map rather than refitting it every day.
+\paragraph{How well does it fit?} Per-slice SVI still leads on the staging sample, while the
+deep smoother and GNO both lie inside the SVI--SSVI window defined in
+Section~\ref{sec:parametric}. The operator does so at amortised cost, which is the point of
+learning the smoothing map rather than refitting it daily.
 
-\paragraph{What does it guarantee, and on what set?} Only SSVI, and therefore the deep
-smoother's prior, carries a theorem. A soft penalty guarantees nothing beyond the grid it was
-evaluated on, and for an operator it guarantees nothing beyond the days it was trained on.
-That distinction, rather than the size of the penalty weight, is what separates the two halves
-of the table.
+\paragraph{What does it guarantee, and on what set?} Only SSVI, and hence the deep
+smoother's prior, carries a theorem. A soft penalty guarantees nothing beyond the grid on which
+it was evaluated, and for an operator nothing beyond the training days. That distinction, not
+the penalty weight, separates the two halves of the table.
 
-\paragraph{What does a failure cost?} This is what the present chapter measured. The GNO buys
+\paragraph{What does a failure cost?} This chapter measured that directly. The GNO buys
 its fit advantage with a local-variance surface invalid on half its domain,
-risk-neutral densities carrying up to $230\%$ negative mass, and day-to-day instability of
-around $8\,\vp$. The unreported path-dependent experiment described in the conclusion points
-the same way, and more sharply, but is not counted here.
+risk-neutral densities with up to $230\%$ negative mass, and day-to-day instability of
+around $8,\vp$. The unreported path-dependent experiment noted in the conclusion points
+the same way, more sharply, but is not counted here.
 
 \paragraph{What does it cost to run?} The operators are four orders of magnitude faster per day
-than the per-day smoother, and that advantage is real. The main advantage of the GNO is
-therefore computational speed. The results above show, however, that this speed comes with
-weaker control of the no-arbitrage constraints on previously unseen days. The prior-embedded
-operator avoids this trade-off in the present experiments, combining fast evaluation with clean
-audit outcomes.
+than the per-day smoother, a genuine advantage. The GNO's main benefit is therefore
+computational speed, but this comes with weaker no-arbitrage control on unseen days. The
+prior-embedded operator avoids this trade-off here, combining fast evaluation with clean audits.
 
 \subsection{What we would tell a desk}
 
 \begin{enumerate}[label=(\roman*),leftmargin=*]
 
 \item \textbf{Do not rely on a model's in-sample violation report alone.} A soft-constraint
-model is naturally evaluated on the same grid on which its penalty was imposed, so a low
-reported violation rate there provides limited evidence about its behaviour away from that
-grid. The relevant comparison is between the training nodes and an independent audit grid,
-together with the corresponding material violation rate.
+model is naturally evaluated on the grid where its penalty was imposed, so a low violation rate
+there says little about behaviour elsewhere. The relevant comparison is between training nodes
+and an independent audit grid, together with the material violation rate.
 
 \item \textbf{Use a certified prior multiplicatively when one exists.} The prior provides the
-protection and the corrector adds the accuracy, and the two do not trade off against each
-other (Tables~\ref{tab:ablation} and~\ref{tab:localvol}).
+protection and the corrector adds accuracy, without trading one against the other
+(Tables~\ref{tab:ablation} and~\ref{tab:prioroperator}).
 
-\item \textbf{Project an operator's output before using it downstream.} If its speed is needed,
-apply one certified-prior corrector step, or the repairs of Section~\ref{sec:parametric}, before
-any Greek or density is computed from it. Monte-Carlo repricing should not be used as the sole
-diagnostic, because the repair step applied before simulation can mask violations present in the
-original surface (\S\ref{sec:localvol}).
+\item \textbf{Project an operator's output before using it downstream.} If an unconstrained
+operator is retained for speed, its output should be projected or recalibrated onto an
+arbitrage-controlled family, for example using the repairs of Section~\ref{sec:parametric},
+before any Greek or density is computed; a dedicated projection step is a natural extension.
+Monte-Carlo repricing should not be the sole diagnostic, since pre-simulation repair can mask
+violations in the original surface (\S\ref{sec:localvol}).
 
 \item \textbf{Score smoothers on more than IV RMSE.} Repair rate, density mass and
-day-over-day stability all rank the families differently from the fit column, and the ranking
-inverts more than once between them.
+day-over-day stability rank the families differently from the fit column, with the ranking
+inverting more than once.
 
 \item \textbf{Do not expect smoothing residuals to pay the touch on SPX.} The breakeven
-frontier sits at $3$ to $5\,\vp$ and the market's residuals live below it
+frontier is $3$ to $5,\vp$, while market residuals lie below it
 (Finding~\ref{find:frontier}). Their value is in marking and market-making, where mid-execution
-capture makes surface cleanliness worth about $+0.4\,\vp$ per ten-day period on the staging
+capture makes surface cleanliness worth about $+0.4,\vp$ per ten-day period on the staging
 counterfactual.
 
-\item \textbf{Treat cleanliness as a requirement for path-dependent books.} A payoff that
-depends on the whole trajectory integrates the surface where the quotes do not constrain it,
-which is where soft penalties are least reliable. A surface indistinguishable from a certified
-one on the vanilla objective can therefore still misprice and mis-hedge an exotic. Project the surface before it reaches the book, not after the P\&L exposes the problem.
-
+\item \textbf{Treat cleanliness as a requirement for path-dependent books.} A trajectory-dependent
+payoff integrates the surface where quotes do not constrain it, precisely where soft penalties
+are least reliable. A surface indistinguishable from a certified one on the vanilla objective
+can still misprice and mis-hedge an exotic. Project it before it reaches the book, not after
+P&L exposes the problem.
 
 \end{enumerate}

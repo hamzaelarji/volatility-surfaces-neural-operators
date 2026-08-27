@@ -121,7 +121,8 @@ Hold-out RMSE (\vp)         & $0.640$ & $1.913$ & $0.522$ & $1.730$ \\
 Butterfly-violating slices  & $12.0\%$ & $0\%$ & $7.7\%$ & $0\%$ \\
 Median crossedness          & $2.07\times10^{-2\,\dagger}$ & $0$ & $1.14\times10^{-2\,\dagger}$ & $0$ \\
 \bottomrule
-\end{tabular}
+\end{tabular}\\[2pt]
+{\footnotesize $^\dagger$ staging-sample value; the production run replaces it.}
 \end{table}
 
 \begin{table}[H]\centering\small
@@ -483,7 +484,7 @@ real constraint is the \emph{calendar} one: on 2018-01-03, $\lambda=0$ leaves $1
 extended domain violating with $\min\partial_\tau w=-0.25$, against $0.0\%$ at $\lambda=10$;
 while on the most butterfly-stressed day the calendar penalty is also inactive and the prior
 alone suffices. The hypothesis that real ultra-short quotes are the natural butterfly stressor
-is thereby downgraded to a question for the full five-year run, with the Volmageddon and COVID
+is thereby downgraded to a question for the full-sample production run, with the Volmageddon and COVID
 weeks the natural suspects.
 
 % ============================================================================
@@ -544,7 +545,7 @@ Section~\ref{sec:deep} smoother and about $1$\,s for SVI.
 \begin{figure}[H]
     \centering
     \makebox[\textwidth][c]{%
-        \includegraphics[width=1.0\textwidth]{figures/nb04_c09_2.png}
+        \includegraphics[width=0.8\textwidth]{figures/nb04_c09_2.png}
     }
     \caption{Hold-out IV RMSE across families and transfer regimes on the $386$ out-of-sample
     days, the same metric reported in Table~\ref{tab:opaudit}. Synthetic pretraining followed
@@ -558,15 +559,15 @@ Section~\ref{sec:deep} smoother and about $1$\,s for SVI.
     \centering
     \makebox[\textwidth][c]{%
         \includegraphics[
-            width=1.0\textwidth,
+            width=0.8\textwidth,
             trim=0 0 0 2.5cm,
             clip
         ]{figures/nb04_c11_0.png}
     }
     \caption{Discretisation invariance, gated on fit validity: dense-surface shift under input
-subsampling. Only the real-only and finetuned regimes are shown. The zero-shot synthetic-only
-DeepONet is omitted because it passes the fit gate on $2$ days out of $386$, and the invariance
-of a surface that does not fit the market is vacuous.}
+subsampling, for the real-only and finetuned regimes. The zero-shot synthetic-only regime is not
+shown: its fits are the weakest of the study ($6.47$ and $4.79\,\vp$), and the stability of a
+surface that fits the market poorly answers a different question from the one asked here.}
     \label{fig:nb04invariance}
 \end{figure}
 

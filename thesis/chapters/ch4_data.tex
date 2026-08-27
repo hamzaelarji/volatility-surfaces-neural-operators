@@ -15,8 +15,8 @@ and the 2024--2025 period.
 Five OptionMetrics tables enter the pipeline: the option-quote table, the zero-coupon yield
 curve, the forward-price table, the proprietary volatility surface, and a historical-volatility
 series. The proprietary surface is used only as an industry benchmark and never as training
-input. The CBOE \texttt{VIX\_History} file provides the published VIX series used for the
-external validation in Section~\ref{sec:vix}.
+input. The CBOE \texttt{VIX\_History} file provides the published VIX series, retained in the
+cleaned dataset for external validation in future work.
 
 NB01 transforms the raw tables into a single reproducible Parquet dataset consumed by every
 subsequent notebook. Each cleaning rule is stated explicitly and enforced by an automated test

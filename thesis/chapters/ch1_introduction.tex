@@ -22,9 +22,9 @@ The literature offers three main families of models, differing by how much of th
 
 
 
-\section{The research gap:what do soft constraints guarantee?}
+\section{The research gap: what do soft constraints guarantee?}
 
-The thesis started as a controlled comparison of the three model families on the same dataset and using the same evaluation protocol / audit. However, during the experiments a more specific issue became clear.
+The thesis started as a controlled comparison of the three model families on the same dataset and using the same evaluation and audit protocol. However, during the experiments a more specific issue became clear.
 
 While training the derivative-constrained smoother, the calendar penalty was exactly zero on the collocation grid used for training. This suggested that the surface satisfied the calendar constraint at all points where the model was checked. But when the same surface was evaluated on a separate and finer audit grid, calendar violations appeared on 28\% of the points.
 
@@ -36,7 +36,7 @@ The thesis studies this problem in three steps:
 
 \begin{enumerate}
 
-    \item \textbf{Diagnosis and repair} (Section~\ref{sec:deep}): we identify the source of the blind spot. The two arbitrage constraints require different grid structures. Thus, we used a separate grid for each constraint. This allows to reduce material calendar violations from $34.4\%$ to $0.0\%$.
+    \item \textbf{Diagnosis and repair} (Section~\ref{sec:deep}): we identify the source of the blind spot. The two arbitrage constraints require different grid structures. Thus, we used a separate grid for each constraint. This reduces material calendar violations from $34.4\%$ to $0.0\%$.
     
     \item \textbf{Extension to neural operators} (Section~\ref{sec:operator}): the same issue appears again in the neural operator, but now in two dimensions. Violations can occur between grid points and on days that were not seen during training. Although the training penalty remains close to zero, an independent audit finds material butterfly violations on up to $356$ of the $386$ out-of-sample days.
     
@@ -51,7 +51,7 @@ Each problem also suggests its own solution, which we develop alongside the anal
 
 \begin{enumerate}[label=(\roman*)]
 
-\item \textbf{A controlled comparison of the three model families.} We implement parametric surfaces, per-surface neural smoothers, and neural operators on the same S&P~500 dataset of $1{,}926$ trading days from 2018--2025. All models are evaluated using the same protocol and the same arbitrage audit. To our knowledge, no previous study compares all three families under the same setting.
+\item \textbf{A controlled comparison of the three model families.} We implement parametric surfaces, per-surface neural smoothers, and neural operators on the same S\&P~500 dataset of $1{,}926$ trading days from 2018--2025. All models are evaluated using the same protocol and the same arbitrage audit. We are not aware of a previous study evaluating all three families within a common data and audit framework.
 
 \item \textbf{Replication and validation of the Gatheral--Jacquier framework.} We reproduce the no-arbitrage conditions and calibration procedures of Gatheral and Jacquier, matching the results reported in the original paper to $10^{-7}$. During this replication, we identify and correct a missing term in the published inverse of the natural-parameter transformation (Section~\ref{sec:parametric}, Remark~\ref{rem:gjtypo}).
 
@@ -61,7 +61,7 @@ Each problem also suggests its own solution, which we develop alongside the anal
 
 \item \textbf{Extension to neural operators and a prior-based solution.} We study DeepONet and graph neural operator architectures over the full chronological sample, together with a synthetic pretraining experiment. We show that the collocation blind spot also appears in neural operators, both between grid points and on unseen trading days. We then embed the certified prior directly into the operator and let the network learn only a bounded correction. This removes material violations on all $386$ out-of-sample days while also improving the fit (Section~\ref{sec:operator}).
 
-\item \textbf{Economic consequences of arbitrage violations.} We study how these violations affect Dupire local volatility, Breeden--Litzenberger densities, and the pricing and hedging of a path-dependent barrier option under an independent Heston benchmark. The most accurate unconstrained operator misprices the barrier by $60\%$. A static-arbitrage scanner on raw bid/ask quotes and a detection-power analysis further show that these violations are better interpreted as model risk rather than as trading opportunities (Chapter~\ref{ch:downstream}).
+\item \textbf{Economic consequences of arbitrage violations.} We study how these violations affect Dupire local volatility and Breeden--Litzenberger densities, and how they degrade the information content of quote--model residuals. A static-arbitrage scanner on raw bid/ask quotes and a detection-power analysis further show that these violations are better interpreted as model risk rather than as trading opportunities (Chapter~\ref{ch:downstream}). Preliminary work on a path-dependent barrier option, described in the conclusion, points in the same direction.
 
 \end{enumerate}
 
@@ -72,10 +72,10 @@ Each problem also suggests its own solution, which we develop alongside the anal
 \setlength{\parskip}{-0.9em}
 
 \paragraph{Parametric and arbitrage-free surfaces.}
-SVI and  SSVI \cite{gatheral2004, gatheraljacquier2014} remain standard parametric approaches to implied volatility modelling. They are popular because they are simple, easy to differentiate and  SSVI come with explicit no-arbitrage conditions. Earlier work also addressed arbitrage-free smoothing directly in price space. Kahale \cite{kahale2004} uses convexity-preserving interpolation, while Fengler \cite{fengler2009} formulates the problem as a constrained spline optimisation. These approaches impose the constraints directly rather than through a training loss. Chapter~\ref{ch:theory} develops the SVI/SSVI framework used as the parametric benchmark in this thesis.
+SVI and SSVI \cite{gatheral2004, gatheraljacquier2014} remain standard parametric approaches to implied volatility modelling. They are popular because they are simple, easy to differentiate, and SSVI comes with explicit no-arbitrage conditions. Earlier work also addressed arbitrage-free smoothing directly in price space. Kahale \cite{kahale2004} uses convexity-preserving interpolation, while Fengler \cite{fengler2009} formulates the problem as a constrained spline optimisation. These approaches impose the constraints directly rather than through a training loss. Chapter~\ref{ch:theory} develops the SVI/SSVI framework used as the parametric benchmark in this thesis.
 
 \paragraph{Neural smoothing and soft constraints.}
-Neural networks have long been used for option pricing and surface approximation \cite{hutchinson1994,dugas2001}. More recent approaches enforce financial structure through derivatives of the fitted network, made available by automatic differentiation \cite{baydin2018}. This idea is closely related to collocation methods used in differential-equation learning \cite{lagaris1998,raissi2019}, where a constraint is evaluated only at a finite set of points. For implied volatility surfaces, Ackerer \cite{ackerer2020} combine a parametric prior with a neural correction and impose no-arbitrage through soft penalties on an extended collocation grid. Hoshisashi et al.\ \cite{hoshisashi2023} use a related derivative-constrained approach with automatic differentiation. Chataigner et al.\ \cite{chataigner2020} make explicit an important limitation of this methodology: the constraints are enforced only on the grid where they are evaluated. Section~\ref{sec:deep} studies this issue directly and measures the gap between the training grid and an independent audit grid.
+Neural networks have long been used for option pricing and surface approximation \cite{hutchinson1994,dugas2001}. More recent approaches enforce financial structure through derivatives of the fitted network, made available by automatic differentiation \cite{baydin2018}. This idea is closely related to collocation methods used in differential-equation learning \cite{lagaris1998,raissi2019}, where a constraint is evaluated only at a finite set of points. For implied volatility surfaces, Ackerer et al.\ \cite{ackerer2020} combine a parametric prior with a neural correction and impose no-arbitrage through soft penalties on an extended collocation grid. Hoshisashi et al.\ \cite{hoshisashi2023} use a related derivative-constrained approach with automatic differentiation. Chataigner et al.\ \cite{chataigner2020} make explicit an important limitation of this methodology: the constraints are enforced only on the grid where they are evaluated. Section~\ref{sec:deep} studies this issue directly and measures the gap between the training grid and an independent audit grid.
 
 \paragraph{Neural operators.}
 Neural operators extend standard neural networks by learning mappings between functions rather than fitting a single function at a time. DeepONet \cite{lu2021} and graph-based neural operators \cite{li2020gno,kovachki2023} provide two main constructions. Operator Deep Smoothing \cite{wiedemann2025} applies this idea to implied volatility by learning a map from a day's option quotes to the corresponding surface. Once trained, the model can therefore be applied to new trading days without fitting a new network. Section~\ref{sec:operator} studies this setting and asks whether the same collocation issue remains when the model must generalise across days.

@@ -209,11 +209,12 @@ Durrleman condition, robustness to quote sparsity, and behaviour across market r
 \hspace*{1em} The thesis's central contribution is methodological and transversal: \emph{soft no-arbitrage penalties are enforced only where they are sampled}. We exhibit a collocation blind spot in which a calendar penalty is \emph{exactly} zero at its training nodes while an independent audit grid reveals a $28\%$ violation rate between them; we trace it to the interaction between exponential maturity spacing and the geometry of calendar arbitrage; we repair it with
 constraint-specific collocation grids, reducing material violations from $34.4\%$ to $0.0\%$ on a
 controlled stress test whose validity is itself verified by a two-condition gate; and we then show
-the same pathology, in a stronger, two-dimensional form that is blind between nodes \emph{and} across days, in the neural operator, where the penalty-grid audit reports near-zero violations while the independent audit flags up to $356$ of $386$ out-of-sample days as materially butterfly-violating. The Gatheral--Jacquier conditions are used constructively: our SSVI prior is \emph{certified}
+the same pathology, in a stronger, two-dimensional form that is blind between nodes \emph{and} across days, in the neural operator, where the penalty-grid audit reports near-zero violations while the independent audit flags up to $356$ of $386$ out-of-sample days as materially butterfly-violating.The Gatheral--Jacquier conditions are used constructively: our SSVI prior is \emph{certified}
 statically arbitrage-free on its working domain rather than luckily so. Finally, the audit is
-priced: through the identity $\sigma_{\mathrm{loc}}^2 = \partial_\tau w / g$, arbitrage violations
-become negative local variances (up to $50\%$ of the operator's surface requires repair before a
-single Monte-Carlo path can be drawn) and negative risk-neutral density mass (up to $230\%$ on some slices), and a residual-economics pipeline shows that surface dirtiness measurably degrades the information content of quote--model residuals. The conclusion is a change of question: not \emph{which model fits best}, but \emph{what a model's constraints actually guarantee, on which set, and at what economic cost when they silently fail}.
+priced: via $\sigma_{\mathrm{loc}}^2 = \partial_\tau w / g$, arbitrage violations
+become negative local variances (up to $50\%$ of the operator's surface requires repair before
+Monte-Carlo simulation) and negative risk-neutral density mass (up to $230\%$ on some slices), and a residual-economics pipeline shows surface dirtiness degrades the information content of quote--model residuals. The constructive counterpart is a prior-embedded operator: fitting the certified SSVI prior per day and learning only a bounded correction removes every material violation on all $386$ out-of-sample days while improving the hold-out fit from $2.69$ to $1.32$ volatility points. The conclusion is a change of question: not \emph{which model fits best}, but \emph{what a model's constraints actually guarantee, on which set, and at what economic cost when they silently fail}.
+
 
 
 
@@ -241,6 +242,30 @@ All code, data pipelines and figures are available and fully reproducible from t
 }
 % \listoffigures
 % \listoftables
+
+% ================================================================ notation
+\chapter*{Notation}
+
+\begin{tabular}{@{}lp{0.72\textwidth}@{}}
+\toprule
+$S_t$, $F$, $K$ & spot, forward and strike; $k=\log(K/F)$ is log-moneyness \\
+$\tau$, $T$ & time to maturity in years; maturity date \\
+$\sigma_{\mathrm{IV}}$, $w$ & Black implied volatility and total implied variance $w=\sigma_{\mathrm{IV}}^{2}\tau$ \\
+$g(k,\tau)$ & Durrleman function; $g\ge0$ is the butterfly (convexity) condition \\
+$\partial_\tau w$ & calendar slope; $\partial_\tau w\ge0$ is the calendar condition \\
+$\sigma_{\mathrm{loc}}^{2}=\partial_\tau w/g$ & Dupire local variance in $(k,w)$ coordinates \\
+$q(k)$ & implied risk-neutral density, $q=g\,\varphi(d_-)/\sqrt{w}$ \\
+$(a,b,\rho,m,\sigma)$ & raw SVI slice parameters; natural and Jump--Wings forms are exact reparameterisations \\
+$\theta(\tau)$, $\varphi(\theta)$, $\rho$ & SSVI ATM total variance, curvature function and correlation \\
+$\mathcal G_\vartheta$ & neural operator mapping a day's quote cloud to a surface \\
+$c$, $s$ & bounded operator correction and its cap, $\widehat\sigma_{\mathrm{IV}}=\sigma_{\mathrm{SSVI}}e^{\,s\tanh(\cdot)}$, $|c|\le s$ \\
+R1, R2, R3 & operator training regimes: real-only, synthetic-only (zero-shot), synthetic pretraining then real finetuning \\
+penalty grid & collocation set on which a soft no-arbitrage penalty is evaluated during training \\
+audit grid & independent, finer grid on which violations are measured after training \\
+$\mathrm{tol}_{\mathrm{mat}}$ & materiality threshold; a violation is material if it exceeds $10^{-3}$ \\
+\vp & volatility point, $0.01$ in implied-volatility units \\
+\bottomrule
+\end{tabular}
 
 % ================================================================ chapters
 \input{chapters/ch1_introduction}
