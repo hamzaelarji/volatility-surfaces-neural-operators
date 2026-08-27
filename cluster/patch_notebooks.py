@@ -158,6 +158,7 @@ def main():
         ("03_deep_smoother.ipynb", "nb03"),
         ("04_neural_operator.ipynb", "nb04"),
         ("05_downstream_economics.ipynb", "nb05"),
+        ("06_path_dependence_barrier.ipynb", "nb06"),
     ]
     base = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
     for name, prefix in targets:
