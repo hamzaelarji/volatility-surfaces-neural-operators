@@ -1,6 +1,4 @@
-# Arbitrage-Free Implied Volatility Surface Construction
-
-### From parametric models to neural operators
+# Arbitrage-Free Implied Volatility Surface Construction: From parametric models to neural operators
 
 MSc thesis in Mathematics and Finance, Imperial College London, 2025 to 2026.
 
