@@ -25,7 +25,7 @@ then links these conditions directly to local variance and to the pricing analys
 The chapter also introduces SVI and SSVI, which provide the parametric benchmark, the arbitrage-free prior used later in the neural models, and closed-form derivatives for validating automatic differentiation.
 
 \paragraph{What is ours, and where the proofs are.}
-Most results in this chapter come from the cited literature and are independently re-derived and checked numerically. Two results are original to this thesis: the correction to the natural-parameter inverse (Remark~\ref{rem:gjtypo}) and the endpoint-certification result (Theorem~\ref{lem:range}). Results from the literature are labelled \emph{Proposition} or \emph{Lemma}, while \emph{Theorem} is reserved for original results. Longer verification proofs are given in Appendix~\ref{app:proofs}.
+Most results in this chapter come from the cited literature and are independently re-derived and checked numerically. One result in this chapter is original to this thesis: the endpoint-certification result (Theorem~\ref{lem:range}). Results from the literature are labelled \emph{Proposition} or \emph{Lemma}, while \emph{Theorem} is reserved for original results. Longer verification proofs are given in Appendix~\ref{app:proofs}.
 
 
 
@@ -36,8 +36,6 @@ Most results in this chapter come from the cited literature and are independentl
 Fix a trading date $t$ and let $S=(S_u)_{u\ge t}$ denote the underlying index. For a maturity $T>t$ write $\tau=T-t$, let $F=F(t,T)$ be the forward price for delivery at $T$ and $D=D(t,T)$ the discount factor. European calls and puts of strike $K$ and maturity $T$ trade at prices $C(K,T)$ and $P(K,T)$.
 
 Throughout, we use a standard \emph{static} and \emph{model-free} framework. The only structure imposed on the quoted (or fitted) price surface is the absence of \textbf{\emph{static arbitrage}}.
-
-\newpage
 
 \begin{definition}[Static arbitrage]\label{def:staticarb}
 A call price surface $(K,T)\mapsto C(K,T)$ admits \emph{static arbitrage} if there exist
@@ -87,8 +85,8 @@ two \emph{nontrivial} directions of static arbitrage are exactly these:
 \text{no calendar-spread arbitrage across maturities.}
 \end{cases}
 \]
-This decomposition is Lemma~2.1 of \cite{gatheraljacquier2014}, resting on
-\cite{coxhobson2005,kellerer1972}. Its sufficiency has a probabilistic reading worth stating
+This decomposition is taken as Definition~2.1 in \cite{gatheraljacquier2014}; its equivalence
+with the price-level definition rests on \cite{coxhobson2005,kellerer1972}. Its sufficiency has a probabilistic reading worth stating
 once, because it explains why the two conditions are the right ones rather than two conditions
 among many. A butterfly-free slice is precisely a slice whose implied density is a genuine
 probability distribution, so each maturity contributes an admissible marginal law. The calendar
@@ -476,8 +474,8 @@ calibration, one for the link to stochastic volatility, and one that traders can
 smile; and its wing behaviour matches the model-free bound of Lee exactly. This section develops
 the three parameterisations and the exact maps between them. Those maps carry more weight than
 their bookkeeping appearance suggests: they are the vehicle of the butterfly-repair algorithm of
-Section~\ref{sec:parametric}, and round-tripping through them is what exposed an error in the
-published inverse (Remark~\ref{rem:gjtypo}).
+Section~\ref{sec:parametric}, and round-tripping through them is how the implementation is
+validated before it is used.
 
 \subsection{The raw parameterisation and its derivatives}
 
@@ -516,7 +514,7 @@ with strict inequality required for condition (ii) of Lemma~\ref{lem:gjbutterfly
 wings only; the interior condition $g\ge0$ has no known tractable characterisation in terms of
 $\chi_R$ and must be checked (Section~\ref{sec:parametric} does so on a fine audit grid).
 
-\subsection{The natural parameterisation and the corrected inverse map}
+\subsection{The natural parameterisation and the inverse map}
 
 The \emph{natural} parameterisation writes the same family as a perturbation of a
 time-rescaled Heston-consistent form:
@@ -527,10 +525,9 @@ w(k;\chi_N)=\Delta+\frac{\omega}{2}
 \end{equation}
 
 The map between the two is elementary, and we give its derivation in full here rather than in the
-appendix: it is the derivation that supplies the term missing from the published inverse
-(Remark~\ref{rem:gjtypo}).
+appendix.
 
-\begin{lemma}[Raw $\leftrightarrow$ natural, {cf.\ \cite[Lemma~3.2]{gatheraljacquier2014}}]
+\begin{lemma}[Raw $\leftrightarrow$ natural, {\cite[Lemma~3.1]{gatheraljacquier2014}}]
 \label{lem:rawnat}
 The parameterisations \eqref{eq:svi} and \eqref{eq:svinat} describe the same slice under
 \begin{equation}\label{eq:nat2raw}
@@ -570,19 +567,9 @@ and
 \]
 \end{proof}
 
-\begin{remark}[\textbf{A correction to the published inverse}]\label{rem:gjtypo}
-During the replication, we found that the natural-to-raw inverse reported in
-\cite[Lemma~3.2]{gatheraljacquier2014} is missing the term
-$-b\sigma\sqrt{1-\rho^2}$ in $\Delta$, or equivalently
-$-\alpha\sqrt{1-\rho^2}$ in the notation of the paper. This term appears directly in the derivation above.
-
-The omission matters in practice because any calibration that passes through the natural parameterisation produces an incorrect value of $\Delta$, and therefore an incorrect SVI slice. We identified the issue by testing $2{,}000$ random parameter sets through the cycle raw$\to$natural$\to$JW$\to$raw. With the corrected term, the round trip closes with a maximum error of $2.7\times10^{-10}$. 
-\end{remark}
-
-
 \subsection{The Jump-Wings parameterisation}
 
-The raw and natural parameterisations are useful for calibration but they are not very intuitive: a set such as $(a,b,\rho,m,\sigma)$ does not immediately tell us what the smile looks like. The \emph{Jump-Wings} (JW) parameterisation \cite{gatheraljacquier2014} describes the same slice using five quantities that a trader can read directly from the smile. At maturity $t$, with $w_t:=v_t,t$ the ATM total variance, these are the ATM variance $v_t$ and ATM skew $\psi_t$, which describe the level and slope of the smile at the money; the left and right wing slopes $p_t$ and $c_t$, which describe the steepness of the put and call wings; and the minimum implied variance $\tilde v_t$ may be shifted away from the money when $\psi_t\neq0$.
+The raw and natural parameterisations are useful for calibration but they are not very intuitive: a set such as $(a,b,\rho,m,\sigma)$ does not immediately tell us what the smile looks like. The \emph{Jump-Wings} (JW) parameterisation \cite{gatheraljacquier2014} describes the same slice using five quantities that a trader can read directly from the smile. At maturity $t$, with $w_t:=v_t\,t$ the ATM total variance, these are the ATM variance $v_t$ and ATM skew $\psi_t$, which describe the level and slope of the smile at the money; the left and right wing slopes $p_t$ and $c_t$, which describe the steepness of the put and call wings; and the minimum implied variance $\tilde v_t$, whose location is shifted away from the money when $\psi_t\neq0$.
 
 
 
@@ -601,7 +588,7 @@ p_t&=\frac{b\,(1-\rho)}{\sqrt{w_t}},
 
 \proofref{proof:jw}
 
-\begin{lemma}[Raw from JW, {\cite[eq.~(3.6)]{gatheraljacquier2014}}]\label{lem:jwinv}
+\begin{lemma}[Raw from JW, {\cite[Lemma~3.2]{gatheraljacquier2014}}]\label{lem:jwinv}
 Given $(v_t,\psi_t,p_t,c_t,\tilde v_t)$ with $w_t=v_tt$, set
 \begin{equation}\label{eq:jwinv}
 b=\frac{\sqrt{w_t}}{2}\,(c_t+p_t),\qquad

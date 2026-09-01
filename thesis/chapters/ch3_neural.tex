@@ -88,7 +88,8 @@ grid's long-end hole, to $0.017$y, the repaired uniform grid, shrinks the worst 
 violation by a factor of about $24$ at equal curvature. This is exactly the repair adopted in
 Section~\ref{sec:deep}, and the reason the repaired node and audit penalties agree to grid
 noise. Figure~\ref{fig:nodegap} illustrates the extremal $f$, and Figure~\ref{fig:gridhole}
-shows the two grids on the thesis's actual maturity axis.
+shows the two grids on the maturity axis of the synthetic stress experiments of
+Section~\ref{sec:deep}.
 \end{remark}
 \begingroup
 \setlength{\floatsep}{6pt}
@@ -108,7 +109,8 @@ proportionality is what the repair of Section~\ref{sec:deep} exploits.}
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=\textwidth]{figures/fig_grid_hole.png}
-\caption{Constraint-specific collocation on the maturity axis $[0.06,1.4]$. The literature's
+\caption{Constraint-specific collocation on the maturity axis $[0.06,1.4]$ of the synthetic
+stress experiments of Section~\ref{sec:deep}. The literature's
 exponential grid (top, ten nodes) crowds the short end, where the butterfly constraint bites,
 but leaves a $0.413$-year gap at the long end, $31\%$ of the axis with no calendar node
 (shaded). The calendar stressor of Section~\ref{sec:deep} forces its crossing inside that gap
@@ -195,9 +197,12 @@ relevant violations. We need a threshold below which a violation is indistinguis
 noise and above which it is economically meaningful.
 
 \begin{definition}[Materiality threshold]\label{def:materiality}
-A violation is \emph{material} if it exceeds $\mathrm{tol}_{\mathrm{mat}}=10^{-3}$ in surface
-units: $w$-units for $g$-type quantities (through their effect on $w$), and
-$\partial_\tau w$-units for calendar.
+Fix $\mathrm{tol}_{\mathrm{mat}}=10^{-3}$. A calendar violation at a point is \emph{material} if
+$\partial_\tau w<-\mathrm{tol}_{\mathrm{mat}}$, in units of total variance per year; a butterfly
+violation is \emph{material} if $g<-\mathrm{tol}_{\mathrm{mat}}$, where $g$ is the dimensionless
+Durrleman function \eqref{eq:g}, normalised so that a flat slice has $g\equiv1$. A violation that
+fails the strict test ($\partial_\tau w<-10^{-8}$ or $g<-10^{-8}$) but not the material one is a
+\emph{numerical residual}.
 \end{definition}
 
 The value $10^{-3}$ is not arbitrary; it is calibrated to the noise in the quotes themselves.
@@ -208,15 +213,16 @@ $w\approx0.03$ at the long end, the noise band on $w$ is about $4\times10^{-4}$.
 violation must therefore sustain $|\partial_\tau w|\gtrsim10^{-3}$ over half a year to move $w$
 beyond this band. Below that, a ``violation'' is a numerical residual of the soft-constraint
 approach, not a monetisable opportunity; Hoshisashi et al.\ make the same observation for their
-DCNN \cite{hoshisashi2023}.
+DCNN \cite{hoshisashi2023}. For $g$ the same numerical value is applied directly: the
+Durrleman function is dimensionless and equals one on a flat slice, so
+$\mathrm{tol}_{\mathrm{mat}}$ flags a local shortfall of one part in a thousand of the flat-smile
+reference. Every $g$-based rate in the thesis uses this convention.
 
 Two consequences hold throughout the thesis. Every violation rate is reported twice,
 \emph{strict} ($<-10^{-8}$, any sign change at all) and \emph{material}
 ($<-\mathrm{tol}_{\mathrm{mat}}$, economically real), so the reader can always separate the two.
 And blind-spot detection compares the node grid and the audit grid \emph{on the same material
-scale}: an earlier, magnitude-inconsistent detector false-alarmed on residuals four orders of
-magnitude below materiality (Section~\ref{sec:deep}), which the material-scale comparison
-eliminates.
+scale}, so that numerical residuals orders of magnitude below materiality cannot raise a flag.
 
 \subsection{The audit-grid methodology}
 
@@ -584,7 +590,7 @@ learns a & function (one surface) & operator & operator \\
 new day costs & a full refit & one forward pass & one forward pass \\
 output shapes & free & span of a global basis & locally assembled \\
 regularity & from prior and penalty & by construction & none imposed \\
-derivatives for penalties & exact (AD) & exact (AD) & finite differences \\
+derivatives for penalties & exact (AD) & finite differences & finite differences \\
 expected failure mode & between nodes & coarse fits & fine-scale curvature \\
 \bottomrule
 \end{tabular}
@@ -635,4 +641,5 @@ together with the materiality calculus of Definition~\ref{def:materiality}, scor
 half of (iv). And Chapter~\ref{ch:downstream} scores its cost half, turning a violation into a
 repair rate, a negative density mass, or a degraded signal through the identity
 $\sigma_{\mathrm{loc}}^2=\partial_\tau w/g$ of Proposition~\ref{prop:dupire}. With the problem
-and its scoring fixed, the benchmark can begin.
+and its scoring fixed, the next chapter describes the data and the protocol common to every
+family.

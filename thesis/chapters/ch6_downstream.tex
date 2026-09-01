@@ -227,8 +227,7 @@ executable static arbitrage, that is, whether the market itself violates
 Proposition~\ref{prop:shape} when priced at the touch. The same checks are run at mid prices
 alongside, and the gap between the two columns is the bid-ask spread absorbing the apparent
 violations. This gives us the data-level baseline against which model violation rates must be
-read, since a model cannot be blamed for reproducing an arbitrage the quotes contain, and it
-identifies the stress days used in Section~\ref{sec:realablation}.
+read, since a model cannot be blamed for reproducing an arbitrage the quotes contain.
 
 \paragraph{Tests.} Per (expiry, type) side, strikes ascending:
 \begin{enumerate}[label=(S\arabic*)]
@@ -330,13 +329,15 @@ horizon--execution cells. At mid execution, for example, the ten-day result is $
 the clean surface against $+0.75\,\vp$ for the dirty one, with the universe and
 transaction-cost assumptions held fixed.
 
-\begin{finding}[Arbitrage-dirtiness weakens the residual signal]\label{find:economics}
+\begin{finding}[Staging observation: arbitrage-dirtiness weakens the residual signal]
+\label{find:economics}
 On matched counterfactuals (same day, quotes, universe, costs), the residual signal computed
 against an arbitrage-dirty surface is weaker than against its clean twin: IC $0.455$ against
-$0.712$ on the synthetic validation, and lower net P\&L in $8/8$ backtest cells on the real
-staging day. The violation is not only a pricing defect of the surface but degrades everything
-computed against it. Statistical confirmation requires the production run; the staging sample
-validates the pipeline.
+$0.712$ on the synthetic validation, and lower net P\&L in $8/8$ backtest cells on the single
+real staging day. Those eight cells are not independent and the synthetic IC is not market
+evidence, so this is recorded as a validation of the pipeline rather than as a result: the
+machinery detects the direction it was built to detect, and statistical confirmation is left to
+the production run.
 \end{finding}
 
 \begin{figure}[H]
@@ -421,8 +422,10 @@ of the pipeline, which does detect signals above the frontier.
 
 \begin{table}[htbp]\centering
 \caption{The unified view. Fit is hold-out IV RMSE under the shared $\mathrm{crc32}$
-protocol (NB02: 8-day staging; NB03: staging days; NB04: 386 chronological out-of-sample
-days). Audit columns are \emph{material} rates on grids independent of any penalty grid.
+protocol (NB02: 8-day staging; NB03: staging days, endpoint-certified calibrator of
+Remark~\ref{rem:cert}; NB04: 386 chronological out-of-sample days). The DeepONet row is the
+real-only regime R1 in every column, so that its fit, audit and downstream entries describe the
+same model. Audit columns are \emph{material} rates on grids independent of any penalty grid.
 Downstream columns from this chapter (staging days). Cost is per new day on CPU.}
 \label{tab:unified}
 \resizebox{\textwidth}{!}{%
@@ -432,10 +435,10 @@ Downstream columns from this chapter (staging days). Cost is per new day on CPU.
 \midrule
 SVI (per slice)      & $0.64$ & none (audited ex post) & 12\% of slices & n/a (no $\partial_\tau w$) & slice-level $g<0$ & $\sim$1\,s \\
 SSVI (certified)     & $1.91$ & \textbf{theorem} (Thm.~\ref{lem:range}) & 0\% & 0\% & 0\% & $\sim$1\,s \\
-Deep ($\lambda{=}10$)& $1.7$--$1.8$ & soft + certified prior & 0\% (staging) & 0\% & 0\% & 80--100\,s \\
-DeepONet (best)      & $2.20$ & soft, train days only & $0.008\%$ & 0.3--0.6\% & $\approx0$ & $<$1\,ms \\
+Deep ($\lambda{=}10$)& $1.15$--$1.31$ & soft + certified prior & 0\% (staging) & 0\% & 0\% & 80--100\,s \\
+DeepONet (R1)        & $2.69$ & soft, train days only & $0.056\%$ (cal) & 0.0--0.6\% & $\approx0$ & $<$1\,ms \\
 DeepONet $+$ prior   & $\mathbf{1.32}$ & soft $+$ certified prior & $\mathbf{0.0\%}$ & 0\% & 0\% & $<$1\,ms$+$1\,s \\
-GNO (best)           & $1.26$ & soft, train days only & \textbf{21.8\% bfly} & \textbf{49--52\%} & up to \textbf{230\%} & 40--400\,ms \\
+GNO (R3, best fit)   & $1.26$ & soft, train days only & \textbf{21.8\% (bfly)} & \textbf{48--50\%} & up to \textbf{230\%} & 40--400\,ms \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -455,7 +458,7 @@ the penalty weight, separates the two halves of the table.
 \paragraph{What does a failure cost?} This chapter measured that directly. The GNO buys
 its fit advantage with a local-variance surface invalid on half its domain,
 risk-neutral densities with up to $230\%$ negative mass, and day-to-day instability of
-around $8,\vp$. The unreported path-dependent experiment noted in the conclusion points
+around $8\,\vp$. The unreported path-dependent experiment noted in the conclusion points
 the same way, more sharply, but is not counted here.
 
 \paragraph{What does it cost to run?} The operators are four orders of magnitude faster per day
@@ -488,15 +491,15 @@ day-over-day stability rank the families differently from the fit column, with t
 inverting more than once.
 
 \item \textbf{Do not expect smoothing residuals to pay the touch on SPX.} The breakeven
-frontier is $3$ to $5,\vp$, while market residuals lie below it
+frontier is $3$ to $5\,\vp$, while market residuals lie below it
 (Finding~\ref{find:frontier}). Their value is in marking and market-making, where mid-execution
-capture makes surface cleanliness worth about $+0.4,\vp$ per ten-day period on the staging
+capture makes surface cleanliness worth about $+0.4\,\vp$ per ten-day period on the staging
 counterfactual.
 
 \item \textbf{Treat cleanliness as a requirement for path-dependent books.} A trajectory-dependent
 payoff integrates the surface where quotes do not constrain it, precisely where soft penalties
 are least reliable. A surface indistinguishable from a certified one on the vanilla objective
 can still misprice and mis-hedge an exotic. Project it before it reaches the book, not after
-P&L exposes the problem.
+P\&L exposes the problem.
 
 \end{enumerate}

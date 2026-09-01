@@ -28,7 +28,7 @@ The thesis started as a controlled comparison of the three model families on the
 
 While training the derivative-constrained smoother, the calendar penalty was exactly zero on the collocation grid used for training. This suggested that the surface satisfied the calendar constraint at all points where the model was checked. But when the same surface was evaluated on a separate and finer audit grid, calendar violations appeared on 28\% of the points.
 
-Both results were correct. The penalty was zero where it was evaluated but violations appeared between those points. The reason was the choice of collocation grid. Maturities were spaced exponentially, which works well for the butterfly constraint, but left a large gap of about five months in a region where calendar arbitrage could occur. In other words the model was not being checked where the violation appeared.
+Neither result was wrong: the penalty was zero on the points where it was evaluated, and the surface violated the constraint between them. The reason was the choice of collocation grid. Maturities were spaced exponentially, which works well for the butterfly constraint, but left a large gap of about five months in a region where calendar arbitrage could occur. In other words the model was not being checked where the violation appeared.
 
 Chataigner \cite{chataigner2020} already noted that soft penalties act ``only on the grid.'' Our results show exactly why this matters. A penalty can be zero at the points where it is evaluated while the surface still violates the constraint between them. So what is really at stake here is not only whether the penalty reaches zero, but where it is checked and what happens when violations affect pricing.
 
@@ -53,7 +53,7 @@ Each problem also suggests its own solution, which we develop alongside the anal
 
 \item \textbf{A controlled comparison of the three model families.} We implement parametric surfaces, per-surface neural smoothers, and neural operators on the same S\&P~500 dataset of $1{,}926$ trading days from 2018--2025. All models are evaluated using the same protocol and the same arbitrage audit. We are not aware of a previous study evaluating all three families within a common data and audit framework.
 
-\item \textbf{Replication and validation of the Gatheral--Jacquier framework.} We reproduce the no-arbitrage conditions and calibration procedures of Gatheral and Jacquier, matching the results reported in the original paper to $10^{-7}$. During this replication, we identify and correct a missing term in the published inverse of the natural-parameter transformation (Section~\ref{sec:parametric}, Remark~\ref{rem:gjtypo}).
+\item \textbf{Replication and validation of the Gatheral--Jacquier framework.} We reproduce the no-arbitrage conditions and calibration procedures of Gatheral and Jacquier, matching the numerical values reported in the original paper to the precision at which they are printed. The three parameterisations and the maps between them are implemented in closed form and validated by round-trip tests that close to $2.7\times10^{-10}$ (Section~\ref{sec:parametric}).
 
 \item \textbf{Identification and repair of the collocation blind spot.} We show that no-arbitrage penalties can miss violations between the points where they are evaluated. We explain the source of this problem and correct it by using a separate collocation grid for each constraint. We also introduce the node-vs-audit gap and a materiality threshold to measure these violations (Section~\ref{sec:deep}).
 

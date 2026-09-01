@@ -18,10 +18,7 @@ machinery that the rest of the thesis reuses against the source paper itself.
 The raw, natural, and Jump--Wings parameterisations in
 Lemmas~\ref{lem:rawnat}--\ref{lem:jwinv} are implemented directly in closed form. As a
 consistency check, we round-trip $2{,}000$ randomly generated parameter sets through
-raw$\to$natural$\to$JW$\to$raw. The largest reconstruction error is $2.7\times10^{-10}$. This
-test also revealed the missing $-b\sigma\sqrt{1-\rho^{2}}$ term in the published inverse
-transformation discussed in Remark~\ref{rem:gjtypo}: without this term, the round trip does not
-recover the original parameters.
+raw$\to$natural$\to$JW$\to$raw. The largest reconstruction error is $2.7\times10^{-10}$.
 
 As a further validation, we apply the transformations to the Vogt smile of
 Example~\ref{ex:vogt}. The resulting Jump--Wings parameters reproduce the published values
@@ -29,12 +26,13 @@ Example~\ref{ex:vogt}. The resulting Jump--Wings parameters reproduce the publis
 (v_t,\psi_t,p_t,c_t,\tilde v_t)=
 (0.01742625,\;-0.1752111,\;0.6997381,\;1.316798,\;0.0116249)
 \end{equation}
-to the reported precision \notebookfig{02}{JW of Vogt}. We then reproduce the repair procedure
+to the reported precision (Notebook~02). We then reproduce the repair procedure
 proposed in the paper, keeping $(v_t,\psi_t,p_t)$ fixed while moving $(c_t,\tilde v_t)$ to the
 boundary of the arbitrage-free region. This gives $c_t'=0.3493158$ and $\tilde v_t'=0.0154818$,
 exactly as reported. The repair raises the minimum Durrleman value for the slice in
-Figure~\ref{fig:vogt} from $\min_k g=-0.0329$ to $+0.2704$, thereby removing the region of
-negative implied density \notebookfig{02}{Vogt repair}.
+Figure~\ref{fig:vogt} from $\min_k g=-0.0329$ to $+0.2704$ on the audit range $k\in[-2,2]$, thereby removing the
+region of negative implied density; on the repaired slice the minimum sits at the edge of the
+range, the interior being uniformly positive (Notebook~02).
 
 The slice calibration routine follows the quasi-explicit decomposition of
 \cite{gatheraljacquier2014}. An outer Nelder--Mead optimisation is performed over $(m,\sigma)$;
@@ -119,10 +117,9 @@ the full quoted domain, 246 on the paper domain $k\in[-0.6,0.4]$, $\mathrm{DTE}\
 In-sample RMSE (\vp)        & $0.635$ & $1.957$ & $0.548$ & $1.810$ \\
 Hold-out RMSE (\vp)         & $0.640$ & $1.913$ & $0.522$ & $1.730$ \\
 Butterfly-violating slices  & $12.0\%$ & $0\%$ & $7.7\%$ & $0\%$ \\
-Median crossedness          & $2.07\times10^{-2\,\dagger}$ & $0$ & $1.14\times10^{-2\,\dagger}$ & $0$ \\
+Median crossedness          & $2.07\times10^{-2}$ & $0$ & $1.14\times10^{-2}$ & $0$ \\
 \bottomrule
 \end{tabular}\\[2pt]
-{\footnotesize $^\dagger$ staging-sample value; the production run replaces it.}
 \end{table}
 
 \begin{table}[H]\centering\small
@@ -343,8 +340,9 @@ $10^{-11}$. What remained was the grid.
 
 \paragraph{Mechanism.} The collocation followed the literature's prescription: exponentially
 spaced maturities, dense at the short end where the butterfly constraint bites
-\cite{ackerer2020}. With ten nodes on $[0.06,1.4]$ there is \emph{no node at all} between
-$0.987$ and $1.400$, a $0.41$-year hole covering $30\%$ of the axis
+\cite{ackerer2020}. With ten nodes on the synthetic experiment's maturity axis $[0.06,1.4]$
+there is \emph{no node at all} between $0.987$ and $1.400$, a $0.41$-year hole covering $31\%$
+of the axis
 (Figure~\ref{fig:gridhole}), exactly where the stressor forces the crossing. The optimiser
 satisfied the penalty at every node and let the surface dip between them, which is precisely the
 extremal configuration of Theorem~\ref{prop:nodegap}; the penalty therefore remained zero despite
@@ -353,8 +351,8 @@ calendar penalty poorly resolved at long maturities, which is \cite{chataigner20
 its most literal form. This was detectable only because the audit grid is independent of, and
 finer than, the collocation grid (Remark~\ref{rem:sampling}).
 
-\paragraph{Repair.} The butterfly penalty keeps its ATM-dense grid (maximal gap $0.10$y); the
-calendar penalty, which costs only one first derivative per node, gets its own uniform grid of
+\paragraph{Repair.} The butterfly penalty keeps the exponential maturity grid, dense at the short
+end where that constraint bites; the calendar penalty, which costs only one first derivative per node, gets its own uniform grid of
 $80$ nodes with maximal gap $0.017$y. By Theorem~\ref{prop:nodegap} that is roughly a $24$-fold
 reduction of the worst admissible hidden violation at equal curvature. A resolution assertion
 verifies, before any stress run, that the calendar grid can actually see the stressed interval.
@@ -437,11 +435,14 @@ its prior. The prior-times-corrector architecture moves the failure point; it do
 
 The per-day driver reuses the NB02 protocol and was staged on early-January 2018 days together
 with an \emph{ex-ante} stress candidate selected from Section~\ref{sec:parametric}'s audit,
-2018-01-08, which carries six butterfly-violating SVI slices with $\min_k g=-0.071$. On these
-days the staging run returns a hold-out of $1.70$--$1.81\,\vp$, zero strict violations on both
-domains, no blind flags, and a valid certificate every day. The $\gamma\le\tfrac12$ episode of
-Remark~\ref{rem:cert} was diagnosed here, the per-day prior-only RMSE being what localised it,
-and endpoint certification recovers the free fit: hold-out improves to $1.15$--$1.31\,\vp$.
+2018-01-08, which carries six butterfly-violating SVI slices with $\min_k g=-0.072$. On these
+days the smoother returns zero strict violations on both domains, no blind flags, and a valid
+certificate every day, with a hold-out error of $1.15$--$1.31\,\vp$ under the endpoint-certified
+calibrator of Remark~\ref{rem:cert}. That calibrator is the one behind every deep-smoother
+number in this thesis, including the surface packs consumed in Chapter~\ref{ch:downstream}. An
+earlier calibrator that clipped $\gamma\le\tfrac12$ returned $1.70$--$1.81\,\vp$ on the same
+days; the episode was diagnosed here, the per-day prior-only RMSE being what localised it, and
+endpoint certification recovers the free fit.
 
 \begin{figure}[H]
     \centering
@@ -545,7 +546,7 @@ Section~\ref{sec:deep} smoother and about $1$\,s for SVI.
 \begin{figure}[H]
     \centering
     \makebox[\textwidth][c]{%
-        \includegraphics[width=0.8\textwidth]{figures/nb04_c09_2.png}
+        \includegraphics[width=0.9\textwidth]{figures/nb04_c09_2.png}
     }
     \caption{Hold-out IV RMSE across families and transfer regimes on the $386$ out-of-sample
     days, the same metric reported in Table~\ref{tab:opaudit}. Synthetic pretraining followed
@@ -559,7 +560,7 @@ Section~\ref{sec:deep} smoother and about $1$\,s for SVI.
     \centering
     \makebox[\textwidth][c]{%
         \includegraphics[
-            width=0.8\textwidth,
+            width=0.9\textwidth,
             trim=0 0 0 2.5cm,
             clip
         ]{figures/nb04_c11_0.png}
@@ -578,14 +579,17 @@ Every penalty is evaluated twice: on the \emph{penalty grid} ($22\times9$, maxim
 $0.176$y, the grid the optimiser saw) and on an \emph{independent audit grid} ($61\times31$,
 uniform, disjoint nodes), with strict and material rates and per-day blind flags. Restricting the audit to the convex hull of the quoted domain, which covers $77\%$ of the box,
 does not rescue the result: the graph operator's material butterfly rate is $22.1\%$
-hull-restricted in R1 and $21.9\%$ in R3, essentially unchanged.
+hull-restricted in R1 and $21.9\%$ in R3, essentially unchanged. If anything the restricted rate
+is marginally higher than the full-box rate, because the violating cells lie mainly inside the
+quoted put wing (Figure~\ref{fig:nb04audit}) rather than in the unquoted corners of the box: the
+failure is not an extrapolation artefact.
 
 \begin{table}[H]\centering\small
 \caption{Operator audit on the $386$ out-of-sample days: material violation rates on the
 independent $61\times31$ grid, blind-spot days (materially clean on the penalty grid, materially
 violating on the audit grid), the worst audit $g$, and the number of days passing the $5\,\vp$
 fit gate. Penalty-grid rates, which are what the training loss reports, are near zero throughout.
-\notebookfig{04}{operator summary table}}
+Bold marks the best hold-out fit. \notebookfig{04}{operator summary table}}
 \label{tab:opaudit}
 \begin{tabular}{llccccccc}
 \toprule
@@ -599,7 +603,7 @@ DeepONet & R1 real-only  & $2.69$ & $0.000\%$  & $0.056\%$ & 1   & 49  & $-0.003
 DeepONet & R3 pre+fine   & $2.20$ & $0.008\%$  & $0.000\%$ & 25  & 0   & $-0.029$ & 383 \\
 GNO      & R2 synth-only & $4.79$ & $23.35\%$  & $0.412\%$ & 303 & 275 & $-35.3$  & 218 \\
 GNO      & R1 real-only  & $1.62$ & $21.17\%$  & $0.033\%$ & 356 & 79  & $-30.6$  & 386 \\
-GNO      & R3 pre+fine   & $\mathbf{1.26}$ & $21.75\%$ & $0.067\%$ & 355 & 86 & $\mathbf{-32.6}$ & 386 \\
+GNO      & R3 pre+fine   & $\mathbf{1.26}$ & $21.75\%$ & $0.067\%$ & 355 & 86 & $-32.6$ & 386 \\
 \bottomrule
 \end{tabular}\\[2pt]
 {\footnotesize $^{\ast}$ The synthetic-only DeepONet passes the fit gate on $2$ days out of
@@ -748,7 +752,8 @@ soft penalties do not transport across days, is architecture-agnostic.
 
 \paragraph{Reading the result.} Read against Table~\ref{tab:opaudit}, the prior-embedded
 DeepONet resolves the inversion rather than merely improving one column. Its hold-out error falls
-from $2.69$ to $1.32\,\vp$, halving the gap to the accuracy leader, while both audit columns go
+from $2.69$ to $1.32\,\vp$, closing almost all of the gap to the accuracy leader, while both
+audit columns go
 to exactly zero and $\min g$ crosses from $-0.0028$ to $+0.071$: not a single materially
 violating cell on any of the $386$ days, against $49$ calendar-blind days for the plain DeepONet.
 The butterfly direction was already essentially clean without the prior, so what the prior

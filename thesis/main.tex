@@ -15,7 +15,6 @@
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{tabularx}
-\usepackage{booktabs}
 \usepackage{float}
 \usepackage{placeins}
 \captionsetup{font=small,labelfont=bf}
@@ -29,9 +28,6 @@
 \onehalfspacing
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.6em}
-\usepackage{tikz}
-\usetikzlibrary{arrows.meta}
-\usepackage{float}
 
 % ---- official Imperial brand palette ---------------------------------------
 \definecolor{impnavy}{HTML}{002147}    % Navy
@@ -79,7 +75,7 @@
 \newcommand{\vp}{\text{vp}} % volatility points
 \newcommand{\relu}{\operatorname{ReLU}}
 \newcommand{\sgn}{\operatorname{sgn}}
-\newcommand{\notebookfig}[2]{\textit{(Notebook #1, figure ``#2''.)}}
+\newcommand{\notebookfig}[2]{Source: Notebook~#1 (#2).}
 
 % red draft markers -----------------------------------------------------------
 \newcommand{\draftnote}[1]{\textcolor{red}{\textbf{[#1]}}}
@@ -203,13 +199,14 @@ derivative-constrained deep smoother in the spirit of Ackerer et al.\ and Hoshis
 (an SSVI prior multiplied by a neural corrector, no-arbitrage enforced through exact automatic
 differentiation), and neural operators following Operator Deep Smoothing, which learn the
 smoothing map itself and apply to unseen days without retraining. All methods share one
-evaluation protocol: hold-out reconstruction error, a static-arbitrage audit built on the
-Durrleman condition, robustness to quote sparsity, and behaviour across market regimes.
+evaluation protocol: a deterministic hold-out of the same quotes for every family, and a
+static-arbitrage audit built on the Durrleman condition on grids independent of any training
+grid.
 
 \hspace*{1em} The thesis's central contribution is methodological and transversal: \emph{soft no-arbitrage penalties are enforced only where they are sampled}. We exhibit a collocation blind spot in which a calendar penalty is \emph{exactly} zero at its training nodes while an independent audit grid reveals a $28\%$ violation rate between them; we trace it to the interaction between exponential maturity spacing and the geometry of calendar arbitrage; we repair it with
 constraint-specific collocation grids, reducing material violations from $34.4\%$ to $0.0\%$ on a
 controlled stress test whose validity is itself verified by a two-condition gate; and we then show
-the same pathology, in a stronger, two-dimensional form that is blind between nodes \emph{and} across days, in the neural operator, where the penalty-grid audit reports near-zero violations while the independent audit flags up to $356$ of $386$ out-of-sample days as materially butterfly-violating.The Gatheral--Jacquier conditions are used constructively: our SSVI prior is \emph{certified}
+the same pathology, in a stronger, two-dimensional form that is blind between nodes \emph{and} across days, in the neural operator, where the penalty-grid audit reports near-zero violations while the independent audit flags up to $356$ of $386$ out-of-sample days as materially butterfly-violating. The Gatheral--Jacquier conditions are used constructively: our SSVI prior is \emph{certified}
 statically arbitrage-free on its working domain rather than luckily so. Finally, the audit is
 priced: via $\sigma_{\mathrm{loc}}^2 = \partial_\tau w / g$, arbitrage violations
 become negative local variances (up to $50\%$ of the operator's surface requires repair before
@@ -226,7 +223,7 @@ Monte-Carlo simulation) and negative risk-neutral density mass (up to $230\%$ on
 
 I am very proud to present this thesis as the culmination of my MSc studies. I would especially like to thank my parents, whose constant support, encouragement and sacrifices have made it possible for me to reach this point.
 
-I also thank Professor Thomas Cass for his guidance, and Dr.~Arthur Bizzi for discussions on neural operators.
+I also thank Professor Thomas Cass for his guidance, and Dr Arthur Bizzi for discussions on neural operators.
 
 All code, data pipelines and figures are available and fully reproducible from the six notebooks (NB01--NB06), available on \href{https://github.com/hamzaelarji/volatility-surfaces-neural-operators.git}{\faGithub\ GitHub}.
 
@@ -246,26 +243,93 @@ All code, data pipelines and figures are available and fully reproducible from t
 % ================================================================ notation
 \chapter*{Notation}
 
-\begin{tabular}{@{}lp{0.72\textwidth}@{}}
+Equation, lemma and section numbers in the right-hand column point to where each object
+is defined. Symbols whose meaning changes with context (for instance $\rho$, $\alpha$,
+$\sigma$, $\theta$, $\varphi$) are listed under the setting in which they carry that meaning.
+
+\newcommand{\notgroup}[1]{\medskip\noindent\textbf{#1}\par\smallskip}
+
+\notgroup{Market, coordinates and the Black map.}
+\noindent\begin{tabular}{@{}p{0.31\textwidth}@{\hspace{6pt}}p{0.66\textwidth}@{}}
 \toprule
-$S_t$, $F$, $K$ & spot, forward and strike; $k=\log(K/F)$ is log-moneyness \\
-$\tau$, $T$ & time to maturity in years; maturity date \\
-$\sigma_{\mathrm{IV}}$, $w$ & Black implied volatility and total implied variance $w=\sigma_{\mathrm{IV}}^{2}\tau$ \\
-$g(k,\tau)$ & Durrleman function; $g\ge0$ is the butterfly (convexity) condition \\
-$\partial_\tau w$ & calendar slope; $\partial_\tau w\ge0$ is the calendar condition \\
-$\sigma_{\mathrm{loc}}^{2}=\partial_\tau w/g$ & Dupire local variance in $(k,w)$ coordinates \\
-$q(k)$ & implied risk-neutral density, $q=g\,\varphi(d_-)/\sqrt{w}$ \\
-$(a,b,\rho,m,\sigma)$ & raw SVI slice parameters; natural and Jump--Wings forms are exact reparameterisations \\
-$\theta(\tau)$, $\varphi(\theta)$, $\rho$ & SSVI ATM total variance, curvature function and correlation \\
-$\mathcal G_\vartheta$ & neural operator mapping a day's quote cloud to a surface \\
-$c$, $s$ & bounded operator correction and its cap, $\widehat\sigma_{\mathrm{IV}}=\sigma_{\mathrm{SSVI}}e^{\,s\tanh(\cdot)}$, $|c|\le s$ \\
-R1, R2, R3 & operator training regimes: real-only, synthetic-only (zero-shot), synthetic pretraining then real finetuning \\
-penalty grid & collocation set on which a soft no-arbitrage penalty is evaluated during training \\
-audit grid & independent, finer grid on which violations are measured after training \\
-$\mathrm{tol}_{\mathrm{mat}}$ & materiality threshold; a violation is material if it exceeds $10^{-3}$ \\
+$t$, $T$, $\tau=T-t$ & trading date, maturity date, time to maturity in years (ACT/365, $\tau=\mathrm{DTE}/365$) \\
+$S_t$, $F=F(t,T)$, $D=D(t,T)$ & spot, forward, discount factor $D=e^{-r\tau}$ \\
+$K$, $k=\log(K/F)$ & strike, log-moneyness (forward-centred) \\
+$C(K,T)$, $P(K,T)$ & quoted (or fitted) call and put prices \\
+$c(k,w)$, $p(k,w)$ & normalised undiscounted prices $C/(DF)$, $P/(DF)$; $c-p=1-e^{k}$ \eqref{eq:blacknorm} \\
+$M_T=S_T/F$ & forward-normalised underlying; a nonnegative martingale under the pricing rule \eqref{eq:pricingrule} \\
+$\sigma_{\mathrm{IV}}$, $w=\sigma_{\mathrm{IV}}^{2}\tau$ & Black implied volatility and total implied variance \eqref{eq:w} \\
+$d_\pm=-k/\sqrt w\pm\sqrt w/2$ & Black arguments in $(k,w)$ coordinates \\
+$N$, $\varphi$ & standard normal cdf and pdf; the SSVI curvature function of Chapter~2 is always written with its argument, $\varphi(\theta)$ \\
+$w'$, $w''$, $\dot w$ & $\partial_k w$, $\partial_{kk}w$, $\partial_\tau w$; subscripts on $c$ denote partials at fixed $(k,w)$ (Lemma~\ref{lem:blackpartials}) \\
+$\theta_\tau=w(0,\tau)$ & at-the-money total implied variance (term structure) \\
+\bottomrule
+\end{tabular}
+
+\notgroup{SVI and SSVI.}
+\noindent\begin{tabular}{@{}p{0.31\textwidth}@{\hspace{6pt}}p{0.66\textwidth}@{}}
+\toprule
+$\chi_R=(a,b,\rho,m,\sigma)$ & raw SVI slice parameters \eqref{eq:svi} \\
+$\chi_N=(\Delta,\mu,\rho,\omega,\zeta)$ & natural SVI parameters \eqref{eq:svinat}; exact maps in Lemma~\ref{lem:rawnat} \\
+$\chi_J=(v_t,\psi_t,p_t,c_t,\tilde v_t)$ & Jump--Wings parameters at maturity $t$, $w_t=v_t t$: ATM variance, ATM skew, put- and call-wing slopes, minimum variance (Lemma~\ref{lem:jw}) \\
+$\varphi(\theta)=\eta\,\theta^{-\gamma}$ & SSVI power-law curvature function, $\eta>0$, $\gamma\in(0,1)$ \eqref{eq:ssvi} \\
+$\theta_\tau=\alpha\,\tau^{\beta}$ & SSVI term structure, $\alpha,\beta>0$ \\
+$\rho$ & SVI/SSVI correlation, $|\rho|<1$ \\
+$[\theta_{\min},\theta_{\max}]$, $[\tau_{\min},\tau_{\max}]$ & working range on which the SSVI certificate is checked at the endpoints (Theorem~\ref{lem:range}) \\
+$w_{\mathrm{SSVI}}$, $\sigma_{\mathrm{SSVI}}$ & certified SSVI prior in total-variance and implied-volatility units \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+\notgroup{Static arbitrage and audit quantities.}
+\noindent\begin{tabular}{@{}p{0.31\textwidth}@{\hspace{6pt}}p{0.66\textwidth}@{}}
+\toprule
+$g(k,\tau)$ & Durrleman function \eqref{eq:g}; butterfly condition $g\ge0$ \\
+$\partial_\tau w$ & calendar slope; calendar condition $\partial_\tau w\ge0$ (Definition~\ref{def:calendar}) \\
+$q(k)=g\,\varphi(d_-)/\sqrt w$ & implied risk-neutral density of $X_T=\log(S_T/F)$ \eqref{eq:density} \\
+$\sigma_{\mathrm{loc}}^{2}=\partial_\tau w/g$ & Dupire local variance in $(k,w)$ coordinates \eqref{eq:dupirekw} \\
+$M_{-}$ & negative density mass, $100\int_{\{q<0\}}|q|\,dk$, in \% of unit mass (\S\ref{sec:densities}) \\
+crossedness & maximal positive gap $w(\tilde k;\chi_1)-w(\tilde k;\chi_2)$ between two slices at their crossing points (\cite[Def.~5.1]{gatheraljacquier2014}) \\
+$\mathrm{tol}_{\mathrm{mat}}=10^{-3}$ & materiality threshold (Definition~\ref{def:materiality}) \\
+strict / material & violation rate counting $<-10^{-8}$ (any sign change) / $<-\mathrm{tol}_{\mathrm{mat}}$ \\
+penalty grid, $\hat X$ & collocation set on which a soft penalty is evaluated during training \\
+audit grid & independent, finer grid, disjoint from every penalty grid, on which violations are measured after training (rules A1--A4) \\
+blind-spot flag & raised when a penalty grid is materially clean while the audit grid is materially violating \\
+fit gate & a day enters an arbitrage comparison only if its hold-out RMSE is below $5\,\vp$ (rule A4) \\
+repair rate & share of a local-variance grid on which $\sigma_{\mathrm{loc}}^2$ is invalid ($\partial_\tau w<0$, $g\le0$ or non-finite) \\
 \vp & volatility point, $0.01$ in implied-volatility units \\
 \bottomrule
 \end{tabular}
+
+\notgroup{Learned surfaces.}
+\noindent\begin{tabular}{@{}p{0.31\textwidth}@{\hspace{6pt}}p{0.66\textwidth}@{}}
+\toprule
+$\{(k_i,\tau_i,\sigma_{\mathrm{IV},i})\}_{i\le p}$ & one day's quote cloud, $p$ quotes \\
+$\mathrm{MLP}_\theta$, $\phi_a$ & multilayer perceptron with parameters $\theta$ (distinct from the ATM variance $\theta_\tau$, always written with its subscript or argument) and activation $\phi_a$ \eqref{eq:mlp} \\
+$w_\theta=w_{\mathrm{SSVI}}\,e^{\mathrm{MLP}_\theta}$ & prior-times-corrector surface \eqref{eq:arch} \\
+$\mathcal L$, $\lambda_{\mathrm b}$, $\lambda_{\mathrm c}$, $\lambda_{\mathrm w}$ & training loss \eqref{eq:loss} and its butterfly, calendar and wing penalty weights \\
+$\omega_i\propto 1/(4w_i\tau_i)$ & IV-targeted fit weights in \eqref{eq:loss} \\
+$\hat X_{\mathrm b}$, $\hat X_{\mathrm c}$, $\hat X_{\mathrm{wing}}$ & constraint-specific collocation grids \\
+$h$, $L$ & node gap between adjacent collocation maturities and Lipschitz bound on $\partial_{\tau\tau}w$ (Theorem~\ref{prop:nodegap}) \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+\notgroup{Neural operators.}
+\noindent\begin{tabular}{@{}p{0.31\textwidth}@{\hspace{6pt}}p{0.66\textwidth}@{}}
+\toprule
+$\mathcal G_\vartheta$ & neural operator mapping a day's quote cloud to a surface \eqref{eq:opmap} \\
+$E$, $\rho_E$, $\phi_E$ & permutation-invariant Deep Sets encoder and its two networks \eqref{eq:deepsets} \\
+$b$, $t$, $p^{\ast}$ & DeepONet branch and trunk networks, size of the trunk basis \eqref{eq:deeponet} \\
+$\kappa_\ell$, $\nu$, $N_m(x)$ & kernel of layer $\ell$, input measure, $m$-nearest-quote neighbourhood of a query $x$ \eqref{eq:kernelint}--\eqref{eq:gno} \\
+$c$, $s$ & bounded operator correction and its cap: $\widehat\sigma_{\mathrm{IV}}=\sigma_{\mathrm{SSVI}}\,e^{c}$, $c=s\tanh(\cdot)$, $|c|\le s=0.35$ \eqref{eq:prioroperator} \\
+R1, R2, R3 & training regimes: real-only; synthetic-only (zero-shot); synthetic pretraining then real finetuning \\
+$22\times9$, $61\times31$ & operator penalty grid (finite differences, as in the reference design) and independent audit grid, in $(k,\tau)$ \\
+\bottomrule
+\end{tabular}
+
 
 % ================================================================ chapters
 \input{chapters/ch1_introduction}
