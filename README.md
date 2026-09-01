@@ -2,7 +2,7 @@
 
 MSc thesis in Mathematics and Finance, Imperial College London, 2025 to 2026.
 
-The full thesis is available in [`thesis/These_Hamza_Imperial.pdf`](thesis/These_Hamza_Imperial.pdf), together with the LaTeX sources in [`thesis/`](thesis/).
+The full thesis is available in [`thesis/EL ARJI_HAMZA_06020926.pdf`](thesis/EL%20ARJI_HAMZA_06020926.pdf), together with the LaTeX sources in [`thesis/`](thesis/).
 
 ## Overview
 
